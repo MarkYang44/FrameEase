@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/fe-core", "src-tauri"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+
+# Size-oriented release build (FFmpeg does the heavy lifting, our code is glue).
+# panic stays "unwind": a panicking job worker must fail that job, not kill the queue.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+panic = "unwind"
