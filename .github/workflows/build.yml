@@ -79,7 +79,14 @@ jobs:
 
       - name: Package
         shell: bash
+        env:
+          STATIC_VCRUNTIME: "true"
         run: bash scripts/ci-step.sh "Package" npx tauri build --config src-tauri/tauri.bundle.json
+
+      - name: Windows no-install ZIP
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bash scripts/ci-step.sh "Portable ZIP" pwsh -NoProfile -File scripts/build-windows-portable.ps1 -SmokeTest
 
       # Windows: both installers must carry every bundled FFmpeg file (the DLLs included), and
       # ffmpeg.exe/ffprobe.exe must start from the unpacked folder with nothing else on PATH.
@@ -96,6 +103,7 @@ jobs:
             target/release/bundle/macos/*.app
             target/release/bundle/nsis/*.exe
             target/release/bundle/msi/*.msi
+            target/release/bundle/portable/*.zip
           if-no-files-found: error
 
   # Pushing a version tag (v1.2.3, matching the version in tauri.conf.json) publishes that
@@ -122,10 +130,10 @@ jobs:
           version=$(jq -r .version src-tauri/tauri.conf.json)
           [ "$TAG" = "v$version" ] || { echo "::error title=Release::tag $TAG does not match app version $version"; exit 1; }
           mkdir release
-          find artifacts -type f \( -name '*.dmg' -o -name '*-setup.exe' -o -name '*.msi' \) -exec cp {} release/ \;
+          find artifacts -type f \( -name '*.dmg' -o -name '*-setup.exe' -o -name '*.msi' -o -name '*-portable.zip' \) -exec cp {} release/ \;
           cd release
-          sha256sum -- *.dmg *-setup.exe *.msi > SHA256SUMS.txt
+          sha256sum -- *.dmg *-setup.exe *.msi *-portable.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "FrameEase $version" --notes-file "../docs/releases/$TAG.md" \
-            *.dmg *-setup.exe *.msi SHA256SUMS.txt
+            *.dmg *-setup.exe *.msi *-portable.zip SHA256SUMS.txt

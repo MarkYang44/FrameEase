@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "fe-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "libc",
@@ -1087,7 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "frameease"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "fe-core",

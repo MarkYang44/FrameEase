@@ -12,7 +12,7 @@ Compress a batch, compare a short trial, trim a clip, or reorganize tracks. Fram
 ![macOS and Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-3457D5)](LICENSE)
 
-[Download v0.1.1](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.1) · [Quick start](#quick-start) · [Development](#development) · [Documentation](#documentation)
+[Download v0.1.2](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.2) · [Quick start](#quick-start) · [Development](#development) · [Documentation](#documentation)
 
 ## Overview
 
@@ -56,6 +56,8 @@ Download the installers from [GitHub Releases](https://github.com/MarkYang44/Fra
 | **macOS · Apple Silicon** | Developed and tested locally; CI builds `.app` and `.dmg` packages. The minimum macOS version depends on the bundled FFmpeg libraries. The local bundle configuration currently requires macOS 26.0+. |
 | **Windows 10/11 · x64** | NSIS/MSI packaging and core tests have passed on Windows CI. Physical Windows desktop validation remains pending. WebView2 is required; the installer offers setup if it is missing. |
 | **macOS · Intel** | No packaged build in the current CI workflow; native validation remains pending. A compatible Intel FFmpeg distribution is needed for source builds. |
+
+For Windows without a FrameEase installation, download `FrameEase_<version>_windows-x64-portable.zip`, extract the **entire** archive, and double-click **FrameEase.exe**. Keep the `ffmpeg` folder beside it. The ZIP includes FFmpeg and its DLLs, but uses the system WebView2 Runtime. Settings and queues stay in the current user's application-data folder, as with the installed version. [Portable instructions](docs/WINDOWS_PORTABLE.txt).
 
 On macOS, open the DMG and copy FrameEase to Applications. On Windows, run the `.exe` installer for a current-user installation, or use `.msi` for a per-machine installation. The installers include FFmpeg when built with the bundle configuration.
 
@@ -130,12 +132,14 @@ Windows, in PowerShell:
 
 ```powershell
 pwsh ./scripts/fetch-ffmpeg-windows.ps1
+$env:STATIC_VCRUNTIME = "true"
 npm run app:build
+npm run windows:portable
 ```
 
 Packages are written to `target/release/bundle/`. Ensure the declared macOS minimum matches the libraries you bundle.
 
-Pushing a matching `v*` version tag runs both platform builds, checks the Windows installers, and publishes the installers with SHA-256 checksums and `docs/releases/<tag>.md` as the release notes.
+Pushing a matching `v*` version tag runs both platform builds, checks the Windows installers, and publishes the installers and Windows no-install ZIP with SHA-256 checksums and `docs/releases/<tag>.md` as the release notes.
 
 The icon source is `assets/app-icon.png`. Run `npm run icons` to regenerate desktop PNG, ICNS, ICO, and Windows tile assets with Tauri.
 
