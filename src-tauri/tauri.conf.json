@@ -36,8 +36,8 @@
     "active": true,
     "targets": "all",
     "category": "Video",
-    "shortDescription": "本地视频压缩、转码与批量处理工具",
-    "longDescription": "FrameEase 在本机使用 FFmpeg 完成 H.264/HEVC/AV1 有损压缩、经逐帧校验的无损重编码、流复制封装与批量队列处理。",
+    "shortDescription": "Local video compression, transcoding, and batch processing",
+    "longDescription": "FrameEase uses FFmpeg locally for H.264, HEVC, and AV1 compression, frame-verified lossless encoding, stream-copy remuxing, and batch queues.",
     "copyright": "FrameEase contributors",
     "icon": [
       "icons/32x32.png",

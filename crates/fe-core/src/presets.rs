@@ -62,6 +62,11 @@ pub fn export_json(p: &Preset) -> String {
 /// Parse an exported preset. Unknown fields are ignored, missing ones get defaults,
 /// values are clamped; machine-specific output folders are dropped.
 pub fn import_json(text: &str) -> Result<Preset, String> {
+    import_json_with_default_name(text, "导入的预设")
+}
+
+/// The UI supplies the localized name used only when the file's name is empty.
+pub fn import_json_with_default_name(text: &str, default_name: &str) -> Result<Preset, String> {
     let file: PresetFile = serde_json::from_str(text).map_err(|e| format!("not a preset file: {e}"))?;
     if file.format != FORMAT {
         return Err(format!("unexpected format {:?}", file.format));
@@ -81,7 +86,8 @@ pub fn import_json(text: &str) -> Result<Preset, String> {
         settings.subtitles.mode = SubtitleMode::Keep;
     }
     settings.trim = None;
-    let name = if file.name.trim().is_empty() { "导入的预设".to_string() } else { file.name.trim().chars().take(60).collect() };
+    let name = if file.name.trim().is_empty() { default_name } else { &file.name };
+    let name = name.trim().chars().take(60).collect();
     Ok(Preset { id: uuid::Uuid::new_v4().to_string(), name, settings, builtin: false })
 }
 
@@ -128,5 +134,13 @@ mod tests {
         assert_eq!(p.settings.output.dir, OutputDir::BesideSource, "foreign folders are not imported");
         assert_eq!(p.settings.output.custom_dir, None);
         assert_eq!(p.name, "导入的预设");
+    }
+
+    #[test]
+    fn import_uses_localized_default_only_for_an_empty_name() {
+        let json = r#"{"format":"frameease-preset","version":1,"name":"  ","settings":{}}"#;
+        assert_eq!(import_json_with_default_name(json, "Imported preset").unwrap().name, "Imported preset");
+        let named = json.replace("  ", "我的预设");
+        assert_eq!(import_json_with_default_name(&named, "Imported preset").unwrap().name, "我的预设");
     }
 }

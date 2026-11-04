@@ -43,7 +43,7 @@ export function SettingsView() {
     try {
       const c = await api.redetectCaps();
       useStore.setState({ caps: c });
-      toast.success("检测完成");
+      toast.success(t("set.detected"));
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -55,7 +55,7 @@ export function SettingsView() {
     if (!dir) return;
     try {
       const r = await api.setFfmpegDir(dir);
-      toast.success(r === "restartRequired" ? t("set.restart") : "已切换");
+      toast.success(r === "restartRequired" ? t("set.restart") : t("set.switched"));
     } catch (e) {
       toast.error(String(e));
     }
@@ -78,7 +78,7 @@ export function SettingsView() {
               <dd>{caps.license}</dd>
               <dt>{t("set.source")}</dt>
               <dd>
-                {t(`src.${caps.ffmpeg.source}`)}：{caps.ffmpeg.ffmpeg}
+                {t(`src.${caps.ffmpeg.source}`)}: {caps.ffmpeg.ffmpeg}
               </dd>
             </dl>
           ) : (
@@ -98,20 +98,20 @@ export function SettingsView() {
             <dl className="kv">
               <dt>{t("set.cpu")}</dt>
               <dd>
-                {caps.cpu.brand || caps.cpu.arch}，{caps.cpu.logical} 线程{caps.cpu.performance ? `（${caps.cpu.performance} 个性能核）` : ""}
+                {caps.cpu.brand || caps.cpu.arch}, {t("common.threads", { n: caps.cpu.logical })}{caps.cpu.performance ? t("set.performanceCores", { n: caps.cpu.performance }) : ""}
               </dd>
               <dt>{t("set.memory")}</dt>
               <dd>{(caps.memoryMb / 1024).toFixed(0)} GB</dd>
               <dt>{t("set.hwDecode")}</dt>
-              <dd>{caps.hwDecode.length ? caps.hwDecode.map((h) => h.replace(":", " · ")).join("，") : "无（已实际测试）"}</dd>
+              <dd>{caps.hwDecode.length ? caps.hwDecode.map((h) => h.replace(":", " · ")).join(", ") : t("set.noHwDecode")}</dd>
             </dl>
             <table className="table">
               <thead>
                 <tr>
-                  <th>输出编码</th>
+                  <th>{t("ins.codec")}</th>
                   <th>{t("set.encoders")}</th>
-                  <th>类型</th>
-                  <th>状态</th>
+                  <th>{t("common.type")}</th>
+                  <th>{t("common.status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -120,7 +120,7 @@ export function SettingsView() {
                     <tr key={g.codec}>
                       <td>{codecLabel(g.codec)}</td>
                       <td colSpan={3} className="muted">
-                        当前 FFmpeg 不包含
+                        {t("set.notIncluded")}
                       </td>
                     </tr>
                   ) : (
@@ -130,13 +130,13 @@ export function SettingsView() {
                         <td>
                           {ENC_LABEL[e.name] ?? e.name} <span className="muted">{e.name}</span>
                         </td>
-                        <td>{e.hardware ? "GPU / 媒体引擎" : "CPU"}</td>
+                        <td>{e.hardware ? t("set.gpu") : "CPU"}</td>
                         <td>
                           {e.usable ? (
                             <span className="ok-text">
                               {t("set.available")}
-                              {e.hardware ? `，${t("set.verifiedEncode")}${e.qualityMode ? "" : "（仅码率模式）"}` : ""}
-                              {e.pixFmts.some((p) => p.includes("10")) ? "，支持 10-bit" : ""}
+                              {e.hardware ? `, ${t("set.verifiedEncode")}${e.qualityMode ? "" : t("set.bitrateOnly")}` : ""}
+                              {e.pixFmts.some((p) => p.includes("10")) ? t("set.tenBit") : ""}
                             </span>
                           ) : (
                             <span className="bad-text" title={e.error ?? ""}>
@@ -152,7 +152,7 @@ export function SettingsView() {
             </table>
             {caps.encoders.filter((e) => e.hardware && codecOf(e.name) === "av1").length === 0 && (
               <p className="small muted" style={{ margin: 0 }}>
-                此 FFmpeg 中没有 AV1 硬件编码器；AV1 使用 CPU 编码（SVT-AV1）。
+                {t("set.noAv1Hardware")}
               </p>
             )}
             <div className="block__title" style={{ fontSize: "var(--fs)" }}>
@@ -167,7 +167,7 @@ export function SettingsView() {
                   <tr key={c.encoder + c.pixFmt}>
                     <td>{ENC_LABEL[c.encoder] ?? c.encoder}</td>
                     <td>{c.pixFmt}</td>
-                    <td className={c.ok ? "ok-text" : "bad-text"}>{c.ok ? "像素一致，已开放" : "未通过，已禁用"}</td>
+                    <td className={c.ok ? "ok-text" : "bad-text"}>{c.ok ? t("set.losslessPassed") : t("set.losslessFailed")}</td>
                     <td className="muted">{c.detail}</td>
                   </tr>
                 ))}
@@ -180,7 +180,7 @@ export function SettingsView() {
           <div className="block__title">{t("set.queue")}</div>
           <p className="small muted" style={{ margin: 0 }}>
             {t("queue.autoHint", { cpu: status?.cpuSlots ?? 1, threads: status?.threadsPerJob ?? "—", light: status?.lightSlots ?? 1 })}
-            开始每个任务前会检查可用内存与磁盘空间，编码中磁盘将满时会自动停止该任务。
+            {t("set.resourceHint")}
           </p>
         </section>
 
@@ -223,7 +223,7 @@ export function SettingsView() {
               </span>
               <select className="select" value={config.locale} onChange={(e) => setConfig((c) => void (c.locale = e.target.value))}>
                 <option value="zh-CN">简体中文</option>
-                <option value="en">English（部分）</option>
+                <option value="en">English</option>
               </select>
             </div>
           </section>
@@ -304,7 +304,7 @@ export function CloseDialog() {
             await api.quitApp().catch(() => setQuitting(false));
           }}
         >
-          {quitting ? "正在停止…" : t("close.quit")}
+          {quitting ? t("close.stopping") : t("close.quit")}
         </Button>
       </div>
     </Dialog>

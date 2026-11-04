@@ -25,11 +25,11 @@ use tokio_util::sync::CancellationToken;
 type Res<T> = Result<T, String>;
 
 fn engine<'a>(state: &'a State<'_, AppState>) -> Res<&'a Engine> {
-    state.engine.get().ok_or_else(|| "后端尚未就绪".to_string())
+    state.engine.get().ok_or_else(|| "backend.notReady".to_string())
 }
 
 fn paths(state: &State<'_, AppState>) -> Res<Paths> {
-    state.paths.get().cloned().ok_or_else(|| "应用目录不可用".to_string())
+    state.paths.get().cloned().ok_or_else(|| "backend.pathsUnavailable".to_string())
 }
 
 #[derive(Serialize)]
@@ -82,7 +82,7 @@ pub async fn set_ffmpeg_dir(app: AppHandle, state: State<'_, AppState>, dir: Opt
     if let Some(d) = &dir
         && fe_core::tools::locate(Some(d), None, None).map(|p| p.source) != Some(fe_core::tools::ToolSource::Custom)
     {
-        return Err("该文件夹中没有同时找到 ffmpeg 与 ffprobe".into());
+        return Err("backend.ffmpegFolderInvalid".into());
     }
     {
         let mut c = lock(&state.config);
@@ -98,7 +98,7 @@ pub async fn set_ffmpeg_dir(app: AppHandle, state: State<'_, AppState>, dir: Opt
 
 #[tauri::command]
 pub async fn redetect_caps(state: State<'_, AppState>) -> Res<Capabilities> {
-    let backend = lock(&state.backend).clone().ok_or("后端尚未就绪")?;
+    let backend = lock(&state.backend).clone().ok_or("backend.notReady")?;
     let p = paths(&state)?;
     let c = caps::detect(&backend, &caps::selftest_dir(&p.cache)).await.map_err(|e| e.to_string())?;
     save_json(&p.caps, &c);
@@ -217,7 +217,7 @@ async fn probe_cached(state: &State<'_, AppState>, path: &Path) -> Result<Arc<Me
     {
         return Ok(m.clone());
     }
-    let backend = lock(&state.backend).clone().ok_or("后端尚未就绪")?;
+    let backend = lock(&state.backend).clone().ok_or("backend.notReady")?;
     let info = Arc::new(media::probe(&backend.ffprobe, path).await.map_err(|e| e.code().to_string())?);
     if let Some((len, t)) = stamp {
         let mut cache = lock(&state.probe_cache);
@@ -439,10 +439,10 @@ fn allowed_path(state: &State<'_, AppState>, path: &Path) -> bool {
 pub async fn reveal_path(app: AppHandle, state: State<'_, AppState>, path: String) -> Res<()> {
     let p = PathBuf::from(&path);
     if !allowed_path(&state, &p) {
-        return Err("不允许打开该位置".into());
+        return Err("backend.locationNotAllowed".into());
     }
     if !p.exists() {
-        return Err("文件已不存在".into());
+        return Err("backend.fileMissing".into());
     }
     app.opener().reveal_item_in_dir(&p).map_err(|e| e.to_string())
 }
@@ -451,10 +451,10 @@ pub async fn reveal_path(app: AppHandle, state: State<'_, AppState>, path: Strin
 pub async fn open_path(app: AppHandle, state: State<'_, AppState>, path: String) -> Res<()> {
     let p = PathBuf::from(&path);
     if !allowed_path(&state, &p) {
-        return Err("不允许打开该文件".into());
+        return Err("backend.fileNotAllowed".into());
     }
     if !p.exists() {
-        return Err("文件已不存在".into());
+        return Err("backend.fileMissing".into());
     }
     app.opener().open_path(path, None::<&str>).map_err(|e| e.to_string())
 }
@@ -462,7 +462,7 @@ pub async fn open_path(app: AppHandle, state: State<'_, AppState>, path: String)
 /// Tail of a job's backend log (bounded, for the log viewer).
 #[tauri::command]
 pub async fn read_log(state: State<'_, AppState>, id: String) -> Res<String> {
-    let job = engine(&state)?.job(&id).ok_or("任务不存在")?;
+    let job = engine(&state)?.job(&id).ok_or("backend.jobMissing")?;
     let Some(p) = job.log_path else { return Ok(String::new()) };
     let bytes = std::fs::read(&p).unwrap_or_default();
     let start = bytes.len().saturating_sub(200_000);
@@ -509,7 +509,7 @@ pub async fn presets_list(state: State<'_, AppState>) -> Res<Vec<Preset>> {
 pub async fn preset_save(state: State<'_, AppState>, name: String, settings: JobSettings) -> Res<Preset> {
     let name = name.trim().chars().take(60).collect::<String>();
     if name.is_empty() {
-        return Err("请输入预设名称".into());
+        return Err("backend.presetNameRequired".into());
     }
     let mut list = user_presets(&state);
     let p = match list.iter_mut().find(|p| p.name == name) {
@@ -541,14 +541,17 @@ pub async fn preset_delete(state: State<'_, AppState>, id: String) -> Res<()> {
 
 #[tauri::command]
 pub async fn preset_export(state: State<'_, AppState>, id: String, path: String) -> Res<()> {
-    let p = all_presets(&state).into_iter().find(|p| p.id == id).ok_or("预设不存在")?;
+    let p = all_presets(&state).into_iter().find(|p| p.id == id).ok_or("backend.presetMissing")?;
     std::fs::write(&path, presets::export_json(&p)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn preset_import(state: State<'_, AppState>, path: String) -> Res<Preset> {
+pub async fn preset_import(state: State<'_, AppState>, path: String, default_name: Option<String>) -> Res<Preset> {
     let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let p = presets::import_json(&text)?;
+    let p = match default_name {
+        Some(name) if !name.trim().is_empty() => presets::import_json_with_default_name(&text, &name)?,
+        _ => presets::import_json(&text)?,
+    };
     let mut list = user_presets(&state);
     list.push(p.clone());
     save_json(&paths(&state)?.presets, &list);
@@ -568,7 +571,7 @@ pub struct TrialArgs {
 #[tauri::command]
 pub async fn trial_run(state: State<'_, AppState>, args: TrialArgs) -> Res<TrialResult> {
     let e = engine(&state)?;
-    let backend = lock(&state.backend).clone().ok_or("后端尚未就绪")?;
+    let backend = lock(&state.backend).clone().ok_or("backend.notReady")?;
     let work = paths(&state)?.previews.join("trial");
     let token = CancellationToken::new();
     if let Some(old) = lock(&state.trial_cancel).replace(token.clone()) {
@@ -603,7 +606,7 @@ pub async fn trial_cancel(state: State<'_, AppState>) -> Res<()> {
 /// Extract one frame into the previews folder; the UI loads it via the asset protocol.
 #[tauri::command]
 pub async fn extract_frame(state: State<'_, AppState>, path: String, time: f64, max_width: u32, tag: String) -> Res<String> {
-    let backend = lock(&state.backend).clone().ok_or("后端尚未就绪")?;
+    let backend = lock(&state.backend).clone().ok_or("backend.notReady")?;
     let safe_tag: String = tag.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(40).collect();
     let out = paths(&state)?.previews.join(format!("{safe_tag}-{}.png", chrono::Utc::now().timestamp_millis()));
     trial::extract_frame(&backend.ffmpeg, Path::new(&path), time, max_width.clamp(160, 3840), &out).await?;
@@ -614,8 +617,8 @@ pub async fn extract_frame(state: State<'_, AppState>, path: String, time: f64, 
 pub async fn keyframes(state: State<'_, AppState>, path: String) -> Res<Vec<f64>> {
     let p = PathBuf::from(&path);
     let m = probe_cached(&state, &p).await?;
-    let backend = lock(&state.backend).clone().ok_or("后端尚未就绪")?;
-    let idx = m.main_video().map(|v| v.index).ok_or("没有视频流")?;
+    let backend = lock(&state.backend).clone().ok_or("backend.notReady")?;
+    let idx = m.main_video().map(|v| v.index).ok_or("backend.noVideo")?;
     media::keyframes(&backend.ffprobe, &p, idx).await.map_err(|e| e.to_string())
 }
 

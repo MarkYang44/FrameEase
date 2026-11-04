@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 // Number formatting. Sizes follow the platform convention (macOS Finder uses
 // 1000-based units, Windows Explorer 1024-based) so values match the file manager.
 
@@ -43,11 +45,11 @@ export function parseTime(text: string): number | null {
 
 export function humanDuration(secs: number | null | undefined): string {
   if (secs === null || secs === undefined || !Number.isFinite(secs)) return "—";
-  if (secs < 60) return `${Math.max(1, Math.round(secs))} 秒`;
+  if (secs < 60) return t("time.seconds", { n: Math.max(1, Math.round(secs)) });
   const m = Math.floor(secs / 60);
   const h = Math.floor(m / 60);
-  if (h > 0) return `${h} 小时 ${m % 60} 分`;
-  return `${m} 分 ${Math.round(secs % 60)} 秒`;
+  if (h > 0) return t("time.hoursMinutes", { h, m: m % 60 });
+  return t("time.minutesSeconds", { m, s: Math.round(secs % 60) });
 }
 
 export function percent(p: number): string {

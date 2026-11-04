@@ -201,11 +201,11 @@ export const useStore = create<Store>((set, get) => {
       const have = new Set(get().staged.map((s) => s.path));
       const fresh = scan.files.filter((f) => !have.has(f));
       if (fresh.length === 0) {
-        toast(t("add.nothing"), { description: skipped.length ? t("add.skipped", { n: skipped.length }) + skipped.join("、") : undefined });
+        toast(t("add.nothing"), { description: skipped.length ? t("add.skipped", { n: skipped.length }) + skipped.join(t("common.listSeparator")) : undefined });
         return;
       }
       set((st) => ({ staged: [...st.staged, ...fresh.map((path) => ({ path, info: null, error: null, preview: null, loading: true }))] }));
-      if (skipped.length) toast(t("add.added", { n: fresh.length }), { description: t("add.skipped", { n: skipped.length }) + skipped.join("、") });
+      if (skipped.length) toast(t("add.added", { n: fresh.length }), { description: t("add.skipped", { n: skipped.length }) + skipped.join(t("common.listSeparator")) });
       // Probe in small batches so the list fills in progressively.
       for (let i = 0; i < fresh.length; i += 4) {
         const batch = fresh.slice(i, i + 4);
@@ -233,7 +233,7 @@ export const useStore = create<Store>((set, get) => {
       const ids = await api.enqueue(ready.map((s) => ({ kind: "convert" as const, input: s.path, settings: clone(settings) })));
       set((st) => ({ staged: st.staged.filter((s) => !s.info) }));
       if (get().status?.paused) await api.setPaused(false);
-      toast.success(`已加入队列 ${ids.length} 个任务`);
+      toast.success(t("queue.addedCount", { n: ids.length }));
     },
 
     setConfig(fn) {

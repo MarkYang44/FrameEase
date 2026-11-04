@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { Film, Info, Layers, Scissors, Settings2, Wand2 } from "lucide-react";
 import { inTauri, onFileDrop, pickPaths, viaBridge, VIDEO_EXTENSIONS } from "./lib/api";
-import { t } from "./lib/i18n";
+import { t, useLocale } from "./lib/i18n";
 import { type View, useStore } from "./lib/store";
 import { ConvertView } from "./views/ConvertView";
 import { CloseDialog, SettingsView, SetupView } from "./views/SettingsView";
@@ -27,7 +27,7 @@ function Nav() {
     </button>
   );
   return (
-    <nav className="nav" aria-label="功能">
+    <nav className="nav" aria-label={t("nav.label")}>
       <div className="nav__brand" aria-hidden>
         <Film size={19} />
       </div>
@@ -39,6 +39,7 @@ function Nav() {
 }
 
 export default function App() {
+  useLocale();
   const init = useStore((st) => st.init);
   const view = useStore((st) => st.view);
   const dropActive = useStore((st) => st.dropActive);
@@ -74,7 +75,7 @@ export default function App() {
       const st = useStore.getState();
       if (e.key === "o" && st.init.kind === "ready") {
         e.preventDefault();
-        const paths = await pickPaths(e.shiftKey ? { directory: true } : { multiple: true, filters: [{ name: "视频", extensions: VIDEO_EXTENSIONS }] });
+        const paths = await pickPaths(e.shiftKey ? { directory: true } : { multiple: true, filters: [{ name: t("common.video"), extensions: VIDEO_EXTENSIONS }] });
         st.setView("convert");
         st.addPaths(paths);
       } else if (e.key === ",") {
@@ -91,29 +92,31 @@ export default function App() {
 
   const ready = init.kind === "ready";
   return (
-    <div className="app">
-      <Nav />
-      <main className="main">
-        {!inTauri && <div className="mock-banner">{viaBridge ? t("app.bridgeBanner") : t("app.mockBanner")}</div>}
-        {!ready && view !== "settings" ? (
-          <SetupView />
-        ) : view === "convert" ? (
-          <ConvertView />
-        ) : view === "trim" ? (
-          <TrimView />
-        ) : view === "mux" ? (
-          <MuxView />
-        ) : view === "info" ? (
-          <InfoView />
-        ) : (
-          <SettingsView />
-        )}
-      </main>
-      <div className="drop-overlay" data-on={dropActive} aria-hidden>
-        {t("add.dropOverlay")}
+    <>
+      <div className="app">
+        <Nav />
+        <main className="main">
+          {!inTauri && <div className="mock-banner">{viaBridge ? t("app.bridgeBanner") : t("app.mockBanner")}</div>}
+          {!ready && view !== "settings" ? (
+            <SetupView />
+          ) : view === "convert" ? (
+            <ConvertView />
+          ) : view === "trim" ? (
+            <TrimView />
+          ) : view === "mux" ? (
+            <MuxView />
+          ) : view === "info" ? (
+            <InfoView />
+          ) : (
+            <SettingsView />
+          )}
+        </main>
+        <div className="drop-overlay" data-on={dropActive} aria-hidden>
+          {t("add.dropOverlay")}
+        </div>
+        <CloseDialog />
       </div>
-      <CloseDialog />
       <Toaster position="bottom-right" theme={theme === "light" || theme === "dark" ? theme : "system"} closeButton richColors />
-    </div>
+    </>
   );
 }

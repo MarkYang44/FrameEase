@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { ChevronDown, FileText, FolderSearch, MoreHorizontal, Play, RotateCcw, Square, X } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, clock, codecLabel, fileName, humanDuration, middleTruncate, percent, ratioLabel } from "../lib/format";
-import { checkName, notice, t } from "../lib/i18n";
+import { checkName, checkValue, notice, t, useLocale } from "../lib/i18n";
 import { useShallow } from "zustand/react/shallow";
 import { selectOrdered, useStore } from "../lib/store";
 import { type Job, isActive } from "../lib/types";
@@ -25,25 +25,25 @@ const dotClass = (j: Job) =>
 function targetChips(j: Job) {
   const p = j.plan;
   const spec = j.spec;
-  if (spec.kind === "extract") return [<Chip key="k">提取轨道 #{spec.streamIndex}</Chip>];
-  if (spec.kind === "mux") return [<Chip key="k">合并轨道</Chip>, <Chip key="c">{spec.output.container.toUpperCase()}</Chip>];
+  if (spec.kind === "extract") return [<Chip key="k">{t("job.extractTrack", { n: spec.streamIndex })}</Chip>];
+  if (spec.kind === "mux") return [<Chip key="k">{t("mux.tabMux")}</Chip>, <Chip key="c">{spec.output.container.toUpperCase()}</Chip>];
   const s = spec.settings;
   const chips = [];
   const from = j.source?.video ? codecLabel(j.source.video) : null;
-  const to = s.video.mode === "copy" ? (from ?? "原编码") : codecLabel(s.video.codec);
+  const to = s.video.mode === "copy" ? (from ?? t("job.originalCodec")) : codecLabel(s.video.codec);
   chips.push(
     <Chip key="codec" tone="accent">
       {from ? `${from} → ${to}` : to}
     </Chip>,
   );
   chips.push(<Chip key="ctr">{s.output.container.toUpperCase()}</Chip>);
-  if (s.video.mode === "lossless") chips.push(<Chip key="m" tone="ok">无损</Chip>);
-  else if (s.video.mode === "copy") chips.push(<Chip key="m">流复制</Chip>);
+  if (s.video.mode === "lossless") chips.push(<Chip key="m" tone="ok">{t("common.lossless")}</Chip>);
+  else if (s.video.mode === "copy") chips.push(<Chip key="m">{t("common.streamCopy")}</Chip>);
   else if (p?.quality) chips.push(<Chip key="q">{qualityText(p.quality, p.encoder)}</Chip>);
-  if (s.trim) chips.push(<Chip key="t">截取 {clock(s.trim.start)}–{s.trim.end !== null ? clock(s.trim.end) : "结尾"}</Chip>);
+  if (s.trim) chips.push(<Chip key="t">{t("job.trimRange", { start: clock(s.trim.start), end: s.trim.end !== null ? clock(s.trim.end) : t("job.end") })}</Chip>);
   if (p?.hw) chips.push(<Chip key="hw">GPU</Chip>);
-  if (s.audio.mode === "none") chips.push(<Chip key="a">无音频</Chip>);
-  else if (s.audio.mode === "transcode") chips.push(<Chip key="a">音频 {s.audio.codec.toUpperCase()}</Chip>);
+  if (s.audio.mode === "none") chips.push(<Chip key="a">{t("job.noAudio")}</Chip>);
+  else if (s.audio.mode === "transcode") chips.push(<Chip key="a">{t("job.audioCodec", { codec: s.audio.codec.toUpperCase() })}</Chip>);
   return chips;
 }
 
@@ -51,13 +51,14 @@ export function qualityText(q: string, encoder: string | null) {
   const [k, v] = q.split(":");
   const enc = encoder ? `${encoder.replace(/^lib/, "")} ` : "";
   if (k === "bitrate") return `${v} kbps`;
-  if (k === "size") return `目标 ${v} MB`;
+  if (k === "size") return t("job.targetSize", { n: v });
   if (k === "lossless" || k === "copy") return k;
   const label = { crf: "CRF", cq: "CQ", q: "q:v", icq: "ICQ", qp: "QP" }[k] ?? k;
   return `${enc}${label} ${v}`;
 }
 
 const JobRow = memo(function JobRow({ job, index, total }: { job: Job; index: number; total: number }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [log, setLog] = useState<string | null>(null);
   const active = isActive(job.state);
@@ -116,7 +117,7 @@ const JobRow = memo(function JobRow({ job, index, total }: { job: Job; index: nu
           <Menu
             align="right"
             trigger={({ toggle }) => (
-              <button type="button" className="icon-btn" aria-label="更多操作" onClick={toggle}>
+              <button type="button" className="icon-btn" aria-label={t("common.more")} onClick={toggle}>
                 <MoreHorizontal size={16} />
               </button>
             )}
@@ -160,7 +161,7 @@ const JobRow = memo(function JobRow({ job, index, total }: { job: Job; index: nu
             {job.stats.speed !== null && job.state === "encoding" && <span>{t("job.speed", { x: job.stats.speed.toFixed(2) })}</span>}
             {job.stats.fps !== null && job.state === "encoding" && <span>{Math.round(job.stats.fps)} fps</span>}
             {job.stats.etaSecs !== null && <span>{t("job.eta", { t: humanDuration(job.stats.etaSecs) })}</span>}
-            {job.state === "verifying" && <span>正在检查输出文件</span>}
+            {job.state === "verifying" && <span>{t("job.verifying")}</span>}
           </div>
         </>
       )}
@@ -254,7 +255,7 @@ const JobRow = memo(function JobRow({ job, index, total }: { job: Job; index: nu
                     <span className={c.ok ? "checks__ok" : "checks__bad"}>{c.ok ? "✓" : "✗"}</span>
                     <span>{checkName(c.name)}</span>
                     <span className="muted">
-                      {c.ok ? c.actual : `期望 ${c.expected}，实际 ${c.actual}`}
+                      {c.ok ? checkValue(c.actual) : t("job.checkMismatch", { expected: checkValue(c.expected), actual: checkValue(c.actual) })}
                     </span>
                   </div>
                 ))}
@@ -272,22 +273,22 @@ const JobRow = memo(function JobRow({ job, index, total }: { job: Job; index: nu
             )}
             {job.plan?.encoder && (
               <>
-                <dt>编码器</dt>
+                <dt>{t("adv.encoder")}</dt>
                 <dd>
                   {job.plan.encoder}
-                  {job.plan.threads ? `，${job.plan.threads} 线程` : ""}
+                  {job.plan.threads ? `, ${t("common.threads", { n: job.plan.threads })}` : ""}
                 </dd>
               </>
             )}
             {job.attempts > 1 && (
               <>
-                <dt>尝试</dt>
+                <dt>{t("job.attempt")}</dt>
                 <dd>{t("job.attempts", { n: job.attempts })}</dd>
               </>
             )}
           </dl>
           {job.error?.detail && <pre className="log">{job.error.detail}</pre>}
-          {log !== null && <pre className="log">{log || "（日志为空）"}</pre>}
+          {log !== null && <pre className="log">{log || t("job.emptyLog")}</pre>}
           {log === null && job.logPath && (
             <Button size="sm" variant="ghost" onClick={showLog} style={{ marginTop: 8 }}>
               <FileText size={13} /> {t("job.log")}
@@ -313,7 +314,7 @@ export function QueueSection() {
         <span className="section__title">{t("queue.title")}</span>
         <span className="section__meta">
           {status && status.running > 0 ? t("queue.running", { n: status.running }) : status?.paused && jobs.length ? t("queue.paused") : ""}
-          {status && status.waiting > 0 ? `，${status.waiting} 个等待` : ""}
+          {status && status.waiting > 0 ? t("queue.waitingCount", { n: status.waiting }) : ""}
         </span>
         <span className="grow" />
         {jobs.length > 0 && (
@@ -322,7 +323,7 @@ export function QueueSection() {
               align="right"
               trigger={({ toggle }) => (
                 <Button size="sm" variant="ghost" onClick={toggle}>
-                  {t("queue.concurrency")}：{conc?.kind === "fixed" ? conc.n : t("queue.concurrencyAuto")}
+                  {t("queue.concurrency")}: {conc?.kind === "fixed" ? conc.n : t("queue.concurrencyAuto")}
                 </Button>
               )}
               items={[
@@ -331,7 +332,7 @@ export function QueueSection() {
                   heading: true,
                 },
                 { label: t("queue.concurrencyAuto"), checked: conc?.kind === "auto", onSelect: () => setConc(null) },
-                ...[1, 2, 3, 4].map((n) => ({ label: `${n} 个同时进行`, checked: conc?.kind === "fixed" && conc.n === n, onSelect: () => setConc(n) })),
+                ...[1, 2, 3, 4].map((n) => ({ label: t("queue.parallelCount", { n }), checked: conc?.kind === "fixed" && conc.n === n, onSelect: () => setConc(n) })),
               ]}
             />
             <Button size="sm" onClick={() => api.setPaused(!status?.paused).catch((e) => toast.error(String(e)))}>

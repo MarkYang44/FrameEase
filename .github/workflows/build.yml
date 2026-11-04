@@ -65,6 +65,16 @@ jobs:
         shell: bash
         run: bash scripts/ci-step.sh "Type check" npm run typecheck
 
+      - name: Frontend regression tests
+        shell: bash
+        run: bash scripts/ci-step.sh "Frontend tests" npm test
+
+      - name: Browser regression tests
+        shell: bash
+        run: |
+          bash scripts/ci-step.sh "Install Chromium" npx playwright install chromium
+          bash scripts/ci-step.sh "Browser tests" npm run test:ui
+
       - name: Package
         shell: bash
         run: bash scripts/ci-step.sh "Package" npx tauri build --config src-tauri/tauri.bundle.json

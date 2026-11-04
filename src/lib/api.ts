@@ -2,6 +2,7 @@
 // labelled mock is used for layout checks only — it never stands in for tests.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { has, t } from "./i18n";
 import type {
   AppConfig,
   Bootstrap,
@@ -48,7 +49,7 @@ function pollBridge() {
   tick();
 }
 
-async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function callRaw<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (inTauri) return invoke<T>(cmd, args);
   if (viaBridge) {
     const r = await fetch(`${BRIDGE}/invoke/${cmd}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(args ?? {}) });
@@ -58,6 +59,15 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
   }
   const mock = await import("./mock");
   return mock.invoke<T>(cmd, args);
+}
+
+async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await callRaw<T>(cmd, args);
+  } catch (error) {
+    const code = String(error);
+    throw code.startsWith("backend.") && has(code) ? t(code) : error;
+  }
 }
 
 export function on<T>(event: string, cb: (payload: T) => void): Promise<() => void> {
@@ -102,7 +112,7 @@ export const api = {
   presetSave: (name: string, settings: JobSettings) => call<Preset>("preset_save", { name, settings }),
   presetDelete: (id: string) => call<void>("preset_delete", { id }),
   presetExport: (id: string, path: string) => call<void>("preset_export", { id, path }),
-  presetImport: (path: string) => call<Preset>("preset_import", { path }),
+  presetImport: (path: string) => call<Preset>("preset_import", { path, defaultName: t("preset.importDefault") }),
   trialRun: (args: { path: string; settings: JobSettings; start: number; duration: number; metrics: boolean }) =>
     call<TrialResult>("trial_run", { args }),
   trialCancel: () => call<void>("trial_cancel"),
