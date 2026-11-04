@@ -42,6 +42,29 @@ async fn self_test_catches_implicit_chroma_conversion() {
     assert!(ok.ok, "{ok:?}");
 }
 
+/// Detection runs every self-test at once in one work folder, so each run needs its own
+/// files: a source clip shared per pixel format, rewritten by a neighbouring test while
+/// being read, made healthy encoders fail at random (x264 "not lossless" on Windows CI).
+#[tokio::test(flavor = "multi_thread")]
+async fn concurrent_self_tests_in_one_folder_all_pass_and_clean_up() {
+    let ff = ffmpeg();
+    let work = tempfile::tempdir().unwrap();
+    for round in 0..4 {
+        let mut set = tokio::task::JoinSet::new();
+        for name in ["libx264", "libx265", "libsvtav1", "ffv1"] {
+            for pix in ["yuv420p", "yuv420p10le"] {
+                let (ff, dir, def) = (ff.ffmpeg.clone(), work.path().to_path_buf(), encoders::get(name).unwrap());
+                set.spawn(async move { caps::lossless_self_test(&ff, def, pix, &dir).await });
+            }
+        }
+        while let Some(check) = set.join_next().await {
+            let check = check.unwrap();
+            assert!(check.ok, "round {round}: {check:?}");
+        }
+    }
+    assert!(walk(work.path()).is_empty(), "self-tests leave no files behind: {:?}", walk(work.path()));
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn broken_backend_is_an_error_not_a_panic() {
     let mut ff = ffmpeg();

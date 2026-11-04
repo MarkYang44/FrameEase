@@ -9,10 +9,12 @@ use crate::settings::Speed;
 use crate::tools::FfmpegPaths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 /// Capability cache format; bump to invalidate cached results.
-pub const CAPS_VERSION: u32 = 1;
+/// 2: lossless self-tests no longer share files (results cached by 1 could be false negatives).
+pub const CAPS_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -343,40 +345,47 @@ pub async fn lossless_self_test(ff: &Path, def: &'static EncoderDef, pix_fmt: &s
     if def.lossless == Lossless::No {
         return check(false, "encoder has no lossless mode".into());
     }
-    let dir = work_dir.join("lossless-selftest");
+    // A folder per run: detection runs these concurrently, and a source clip shared per
+    // pixel format used to be rewritten by one self-test while another was reading it.
+    static RUN: AtomicU64 = AtomicU64::new(0);
+    let run = RUN.fetch_add(1, Ordering::Relaxed);
+    let dir = work_dir.join("lossless-selftest").join(format!("{}-{pix_fmt}-{}-{run}", def.name, std::process::id()));
     if let Err(e) = std::fs::create_dir_all(&dir) {
         return check(false, e.to_string());
     }
-    let src = dir.join(format!("src_{pix_fmt}.nut"));
-    let out = dir.join(format!("{}_{pix_fmt}.mkv", def.name));
-    let source_graph = format!("testsrc2=size=128x72:rate=10,noise=alls=25:allf=t,format={pix_fmt}");
-    let mk = ["-hide_banner", "-v", "error", "-y", "-f", "lavfi", "-i", &source_graph, "-frames:v", "8", "-c:v", "rawvideo", "-f", "nut"];
-    let mut mk: Vec<String> = mk.iter().map(|s| s.to_string()).collect();
-    mk.push(ff_path(&src));
-    match process::run_capture(ff, &mk, TEST_TIMEOUT).await {
-        Ok(o) if o.success() => {}
-        Ok(o) => return check(false, format!("cannot create {pix_fmt} source: {}", o.stderr_tail(2))),
-        Err(e) => return check(false, e.to_string()),
+    let (ok, detail) = async {
+        let src = dir.join("source.nut");
+        let out = dir.join("encoded.mkv");
+        let source_graph = format!("testsrc2=size=128x72:rate=10,noise=alls=25:allf=t,format={pix_fmt}");
+        let mk = ["-hide_banner", "-v", "error", "-y", "-f", "lavfi", "-i", &source_graph, "-frames:v", "8", "-c:v", "rawvideo", "-f", "nut"];
+        let mut mk: Vec<String> = mk.iter().map(|s| s.to_string()).collect();
+        mk.push(ff_path(&src));
+        match process::run_capture(ff, &mk, TEST_TIMEOUT).await {
+            Ok(o) if o.success() => {}
+            Ok(o) => return (false, format!("cannot create {pix_fmt} source: {}", o.stderr_tail(2))),
+            Err(e) => return (false, e.to_string()),
+        }
+        let mut enc: Vec<String> = ["-hide_banner", "-v", "error", "-y", "-i"].iter().map(|s| s.to_string()).collect();
+        enc.push(ff_path(&src));
+        enc.extend(encoders::video_args(
+            def,
+            // Small explicit thread budget: several self-tests run at once at startup.
+            &EncArgs { rate: RateArgs::Lossless, speed: Speed::Balanced, threads: Some(2), logical_cpus: 2, pass: None },
+        ));
+        enc.extend(["-f".into(), "matroska".into(), ff_path(&out)]);
+        match process::run_capture(ff, &enc, TEST_TIMEOUT).await {
+            Ok(o) if o.success() => match (frame_hashes(ff, &src, &[]).await, frame_hashes(ff, &out, &[]).await) {
+                (Ok(a), Ok(b)) if !a.is_empty() && a == b => (true, format!("{} frames identical", a.len())),
+                (Ok(a), Ok(b)) => (false, format!("decoded frames differ ({} vs {})", a.len(), b.len())),
+                (Err(e), _) | (_, Err(e)) => (false, e),
+            },
+            Ok(o) => (false, o.stderr_tail(2)),
+            Err(e) => (false, e.to_string()),
+        }
     }
-    let mut enc: Vec<String> = ["-hide_banner", "-v", "error", "-y", "-i"].iter().map(|s| s.to_string()).collect();
-    enc.push(ff_path(&src));
-    enc.extend(encoders::video_args(
-        def,
-        // Small explicit thread budget: several self-tests run at once at startup.
-        &EncArgs { rate: RateArgs::Lossless, speed: Speed::Balanced, threads: Some(2), logical_cpus: 2, pass: None },
-    ));
-    enc.extend(["-f".into(), "matroska".into(), ff_path(&out)]);
-    let result = match process::run_capture(ff, &enc, TEST_TIMEOUT).await {
-        Ok(o) if o.success() => match (frame_hashes(ff, &src, &[]).await, frame_hashes(ff, &out, &[]).await) {
-            (Ok(a), Ok(b)) if !a.is_empty() && a == b => check(true, format!("{} frames identical", a.len())),
-            (Ok(a), Ok(b)) => check(false, format!("decoded frames differ ({} vs {})", a.len(), b.len())),
-            (Err(e), _) | (_, Err(e)) => check(false, e),
-        },
-        Ok(o) => check(false, o.stderr_tail(2)),
-        Err(e) => check(false, e.to_string()),
-    };
-    let _ = std::fs::remove_file(&out);
-    result
+    .await;
+    let _ = std::fs::remove_dir_all(&dir);
+    check(ok, detail)
 }
 
 /// Decode a small sample through each hardware accelerator; keep the ones that work.
