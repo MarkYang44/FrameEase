@@ -1,0 +1,50 @@
+# TEMPORARY, remove before merging: compares BtbN's static and shared FFmpeg 8.1 builds for
+# Windows (same release) to show the switch to the shared build loses no encoder, decoder,
+# filter or format. The result is an annotation on the run.
+name: ffmpeg-parity
+
+on: push
+
+jobs:
+  parity:
+    runs-on: windows-latest
+    steps:
+      - name: Compare static and shared builds
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ProgressPreference = "SilentlyContinue"
+          $base = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
+          $exe = @{}
+          foreach ($v in "gpl", "gpl-shared") {
+            $zip = "ffmpeg-n8.1-latest-win64-$v-8.1.zip"
+            Invoke-WebRequest "$base/$zip" -OutFile $zip
+            Expand-Archive $zip -DestinationPath $v
+            $exe[$v] = (Get-ChildItem $v -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName
+          }
+          $static = $exe["gpl"]
+          $shared = $exe["gpl-shared"]
+          $lines = @()
+          $lines += "static: " + @(& $static -hide_banner -version)[0]
+          $lines += "shared: " + @(& $shared -hide_banner -version)[0]
+          $bad = $false
+          foreach ($k in "encoders", "decoders", "filters", "muxers", "demuxers", "protocols", "bsfs", "hwaccels", "pix_fmts") {
+            $a = @(& $static -hide_banner "-$k")
+            $b = @(& $shared -hide_banner "-$k")
+            $d = @(Compare-Object $a $b -CaseSensitive)
+            if ($d.Count -eq 0 -and $a.Count -eq $b.Count) {
+              $lines += "-${k}: identical ($($a.Count) lines)"
+            } else {
+              $bad = $true
+              $lines += "-${k}: DIFFERENT (" + (($d | ForEach-Object { "$($_.SideIndicator) $($_.InputObject.Trim())" }) -join "; ") + ")"
+            }
+          }
+          $ca = @(& $static -hide_banner -buildconf | ForEach-Object { $_.Trim() } | Where-Object { $_ -like "--*" })
+          $cb = @(& $shared -hide_banner -buildconf | ForEach-Object { $_.Trim() } | Where-Object { $_ -like "--*" })
+          $lines += "configure flags only in static: " + (($ca | Where-Object { $cb -notcontains $_ }) -join " ")
+          $lines += "configure flags only in shared: " + (($cb | Where-Object { $ca -notcontains $_ }) -join " ")
+          $lines += "external libraries: " + (($cb | Where-Object { $_ -like "--enable-lib*" }) -join " ")
+          $lines | ForEach-Object { Write-Host $_ }
+          $msg = ($lines -join "`n").Replace("%", "%25").Replace("`r", "").Replace("`n", "%0A")
+          if ($bad) { Write-Host "::error title=FFmpeg static vs shared::$msg"; exit 1 }
+          Write-Host "::notice title=FFmpeg static vs shared::$msg"

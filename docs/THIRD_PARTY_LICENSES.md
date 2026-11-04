@@ -6,6 +6,8 @@
 
 FrameEase 以子进程方式调用 FFmpeg/ffprobe，不与其链接。随安装包附带的 FFmpeg 构建启用了 GPL 组件（x264、x265 等），因此这些二进制按 GNU GPL 分发；对应源码地址见下方说明。
 
+Windows 安装包附带的是 BtbN/FFmpeg-Builds 的 GPL 共享库构建：`ffmpeg.exe`、`ffprobe.exe` 与 FFmpeg 自身的 DLL，x264 等其余库静态链接在这些 DLL 中。每个安装包的 `ffmpeg` 文件夹都附有所带构建的 `LICENSE-NOTICE.txt`、`BUILDCONF.txt` 与 `VERSION.txt`（Windows 版另附 GPL 全文 `LICENSE.txt`）；下方是生成本文件时所打包构建的说明。
+
 ```
 This folder contains ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers and the libraries it links against,
 copied unmodified from the build at /opt/homebrew/bin.

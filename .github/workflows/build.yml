@@ -43,11 +43,13 @@ jobs:
           python3 -c "import json,sys; p='src-tauri/tauri.bundle.json'; d=json.load(open(p)); d['bundle']['macOS']['minimumSystemVersion']=sys.argv[1]; json.dump(d,open(p,'w'),indent=2)" "$MINOS"
           echo "Bundled FFmpeg requires macOS $MINOS"
 
-      # Windows: static GPL build (x264/x265/SVT-AV1/libaom/dav1d/libass…), no DLLs to manage.
+      # Windows: BtbN's shared GPL build of FFmpeg 8.1. x264/x265/SVT-AV1/libaom/dav1d/libass…
+      # are linked into FFmpeg's own DLLs, which ship beside ffmpeg.exe and ffprobe.exe, so the
+      # codec set is bundled once instead of once per program as in the static build.
       - name: FFmpeg (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./scripts/fetch-ffmpeg-windows.ps1
+        shell: bash
+        run: bash scripts/ci-step.sh "FFmpeg" pwsh -NoProfile -File scripts/fetch-ffmpeg-windows.ps1
 
       - run: npm ci
 
@@ -68,6 +70,13 @@ jobs:
       - name: Package
         shell: bash
         run: bash scripts/ci-step.sh "Package" npx tauri build --config src-tauri/tauri.bundle.json
+
+      # Windows: both installers must carry every bundled FFmpeg file (the DLLs included), and
+      # ffmpeg.exe/ffprobe.exe must start from the unpacked folder with nothing else on PATH.
+      - name: Check installers (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bash scripts/ci-step.sh "Check installers" pwsh -NoProfile -File scripts/check-windows-installers.ps1
 
       - uses: actions/upload-artifact@v4
         with:

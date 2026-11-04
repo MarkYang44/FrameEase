@@ -89,7 +89,7 @@ npm run ffmpeg:bundle
 npm run app:build
 ```
 
-Windows 上用 `pwsh ./scripts/fetch-ffmpeg-windows.ps1` 获取 FFmpeg 后再 `npm run app:build`（生成 NSIS/MSI 安装包）。
+Windows 上用 `pwsh ./scripts/fetch-ffmpeg-windows.ps1` 获取 FFmpeg 后再 `npm run app:build`（生成 NSIS/MSI 安装包）。脚本取 BtbN 的 FFmpeg 8.1 GPL 共享库构建：`ffmpeg.exe`、`ffprobe.exe` 加同一文件夹里 FFmpeg 自身的 DLL；x264、x265、SVT-AV1、libaom、dav1d、libass 等库静态链接在这些 DLL 中，整套编解码器只随包一份（静态构建的两个 exe 各带一份）。Windows 会先从程序所在文件夹加载 DLL，应用又以完整路径启动 FFmpeg，因此不受 PATH 影响。
 
 产物位于 `target/release/bundle/`（`.app`、`.dmg`；Windows 为 `.exe`/`.msi`）。
 
