@@ -1,7 +1,8 @@
 {
   "bundle": {
     "resources": {
-      "resources/ffmpeg/": "ffmpeg/"
+      "resources/ffmpeg/": "ffmpeg/",
+      "../docs/THIRD_PARTY_LICENSES.md": "THIRD_PARTY_LICENSES.md"
     },
     "macOS": {
       "minimumSystemVersion": "26.0"

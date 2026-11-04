@@ -12,7 +12,7 @@ Compress a batch, compare a short trial, trim a clip, or reorganize tracks. Fram
 ![macOS and Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-3457D5)](LICENSE)
 
-[Build artifacts](https://github.com/MarkYang44/FrameEase/actions/workflows/build.yml) · [Quick start](#quick-start) · [Development](#development) · [Documentation](#documentation)
+[Download v0.1.1](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.1) · [Quick start](#quick-start) · [Development](#development) · [Documentation](#documentation)
 
 ## Overview
 
@@ -49,7 +49,7 @@ Hardware encoding and decoding are enabled only after runtime tests. Available c
 
 ## Installation and compatibility
 
-The project is under active development. Packaged builds are attached to successful [GitHub Actions runs](https://github.com/MarkYang44/FrameEase/actions/workflows/build.yml); select a run and download its platform artifact. GitHub may require sign-in for artifact downloads.
+Download the installers from [GitHub Releases](https://github.com/MarkYang44/FrameEase/releases/latest). Each release includes `SHA256SUMS.txt` for integrity checks. Development build artifacts are also available from successful [GitHub Actions runs](https://github.com/MarkYang44/FrameEase/actions/workflows/build.yml).
 
 | Platform | Availability and validation |
 | --- | --- |
@@ -57,9 +57,13 @@ The project is under active development. Packaged builds are attached to success
 | **Windows 10/11 · x64** | NSIS/MSI packaging and core tests have passed on Windows CI. Physical Windows desktop validation remains pending. WebView2 is required; the installer offers setup if it is missing. |
 | **macOS · Intel** | No packaged build in the current CI workflow; native validation remains pending. A compatible Intel FFmpeg distribution is needed for source builds. |
 
-On macOS, open the DMG and copy FrameEase to Applications. On Windows, extract the downloaded artifact and run its `.exe` or `.msi` installer. The installers include FFmpeg when built with the bundle configuration.
+On macOS, open the DMG and copy FrameEase to Applications. On Windows, run the `.exe` installer for a current-user installation, or use `.msi` for a per-machine installation. The installers include FFmpeg when built with the bundle configuration.
 
 The shell's configured macOS floor is 11.0; this is **not** a compatibility promise for packages with newer FFmpeg dependencies. CI derives its package floor from the bundled executable. See [testing and platform notes](docs/TESTING.md).
+
+### First launch
+
+Packages are not signed with a paid developer certificate. On macOS, after the first blocked launch, use **System Settings → Privacy & Security → Open Anyway**. On Windows, SmartScreen may offer **More info → Run anyway**. Windows installations without WebView2 require an internet connection to install that runtime.
 
 ## Quick start
 
@@ -130,6 +134,8 @@ npm run app:build
 ```
 
 Packages are written to `target/release/bundle/`. Ensure the declared macOS minimum matches the libraries you bundle.
+
+Pushing a matching `v*` version tag runs both platform builds, checks the Windows installers, and publishes the installers with SHA-256 checksums and `docs/releases/<tag>.md` as the release notes.
 
 The icon source is `assets/app-icon.png`. Run `npm run icons` to regenerate desktop PNG, ICNS, ICO, and Windows tile assets with Tauri.
 

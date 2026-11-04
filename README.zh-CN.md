@@ -12,7 +12,7 @@
 ![macOS and Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-3457D5)](LICENSE)
 
-[构建产物](https://github.com/MarkYang44/FrameEase/actions/workflows/build.yml) · [快速开始](#快速开始) · [开发](#开发) · [文档](#文档)
+[下载 v0.1.1](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.1) · [快速开始](#快速开始) · [开发](#开发) · [文档](#文档)
 
 ## 概览
 
@@ -49,7 +49,7 @@ FrameEase 将 H.264、HEVC、AV1 和 FFV1 处理流程与持久化批量队列�
 
 ## 安装与兼容性
 
-项目处于持续开发阶段。安装包位于成功的 [GitHub Actions 运行](https://github.com/MarkYang44/FrameEase/actions/workflows/build.yml)的 Artifacts 中，下载时可能需要登录 GitHub。
+安装包位于 [GitHub Releases](https://github.com/MarkYang44/FrameEase/releases/latest)，每个版本附带 `SHA256SUMS.txt` 校验文件。开发构建仍可在成功的 [GitHub Actions 运行](https://github.com/MarkYang44/FrameEase/actions/workflows/build.yml)中下载。
 
 | 平台 | 可用性与验证状态 |
 | --- | --- |
@@ -57,9 +57,13 @@ FrameEase 将 H.264、HEVC、AV1 和 FFV1 处理流程与持久化批量队列�
 | **Windows 10/11 · x64** | Windows CI 已通过核心测试及 NSIS/MSI 打包；实体 Windows 桌面验证仍待完成。需要 WebView2，缺失时安装程序提供安装入口。 |
 | **macOS · Intel** | 当前 CI 不提供安装包，尚未实机验证；从源码构建需要兼容的 Intel 版 FFmpeg。 |
 
-macOS 打开 DMG 后将 FrameEase 拖入 Applications；Windows 解压构建产物后运行 `.exe` 或 `.msi`。使用 bundle 配置构建的安装包包含 FFmpeg。
+macOS 打开 DMG 后将 FrameEase 拖入 Applications；Windows 使用 `.exe` 安装到当前用户，或使用 `.msi` 按机器安装。使用 bundle 配置构建的安装包包含 FFmpeg。
 
 应用外壳配置的 macOS 下限为 11.0，**不代表附带较新 FFmpeg 的安装包支持此版本**。CI 会依据随包可执行文件声明实际下限。详见[测试与平台说明](docs/TESTING.md)。
+
+### 首次启动
+
+安装包未使用付费开发者证书签名。macOS 首次启动被拦截后，可在“系统设置 → 隐私与安全性”中选择“仍要打开”；Windows SmartScreen 可能提供“更多信息 → 仍要运行”。未安装 WebView2 的 Windows 电脑需要联网安装该运行时。
 
 ## 快速开始
 
@@ -130,6 +134,8 @@ npm run app:build
 ```
 
 产物位于 `target/release/bundle/`。打包时请确保 macOS 最低版本与附带依赖一致。
+
+推送与应用版本一致的 `v*` 标签后，工作流会构建双平台安装包、检查 Windows 安装包内容，并附带 SHA-256 校验和及 `docs/releases/<tag>.md` 发布说明。
 
 图标原图为 `assets/app-icon.png`，运行 `npm run icons` 可重新生成桌面 PNG、ICNS、ICO 与 Windows 磁贴资源。
 
