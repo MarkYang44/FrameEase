@@ -7,3 +7,5 @@ src-tauri/resources/ffmpeg/
 .DS_Store
 test-media/
 artifacts/
+test-results/
+playwright-report/

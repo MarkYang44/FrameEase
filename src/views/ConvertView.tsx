@@ -18,7 +18,7 @@ export function ConvertView() {
   const setConfig = useStore((st) => st.setConfig);
   const [trialOpen, setTrialOpen] = useState(false);
 
-  const addFiles = async () => addPaths(await pickPaths({ multiple: true, filters: [{ name: "视频", extensions: VIDEO_EXTENSIONS }, { name: "所有文件", extensions: ["*"] }] }));
+  const addFiles = async () => addPaths(await pickPaths({ multiple: true, filters: [{ name: t("common.video"), extensions: VIDEO_EXTENSIONS }, { name: t("common.allFiles"), extensions: ["*"] }] }));
   const addFolder = async () => addPaths(await pickPaths({ directory: true, multiple: true }));
   const empty = staged.length === 0 && order.length === 0;
 
@@ -95,7 +95,7 @@ function StagedSection() {
       <div className="section__head">
         <span className="section__title">{t("staged.title")}</span>
         <span className="section__meta">
-          {staged.length} 个文件{withIssues ? `，${withIssues} 个需要处理` : ""}
+          {t("staged.fileCount", { n: staged.length })}{withIssues ? t("staged.needsAttention", { n: withIssues }) : ""}
         </span>
         <span className="grow" />
         <Button size="sm" variant="ghost" onClick={clear}>
@@ -115,7 +115,7 @@ function StagedSection() {
       </div>
       {fixes.length > 0 && (
         <div className="row row--wrap" style={{ marginTop: 10 }}>
-          <span className="small muted">一次处理全部：</span>
+          <span className="small muted">{t("staged.fixAll")}</span>
           {fixes.map((f) => (
             <Button key={f} size="sm" onClick={() => applyFix(f)}>
               {t(`fix.${f}`)}
@@ -150,20 +150,20 @@ function StagedRow({ s }: { s: Staged }) {
                     {v.rotation % 180 === 90 ? `${v.height}×${v.width}` : `${v.width}×${v.height}`}
                   </Chip>
                 )}
-                {v?.fps ? <Chip>{v.vfr ? `≈${fps(v.fps)} 可变` : fps(v.fps)}</Chip> : null}
+                {v?.fps ? <Chip>{v.vfr ? t("staged.vfr", { fps: fps(v.fps) }) : fps(v.fps)}</Chip> : null}
                 {v?.bitDepth && v.bitDepth > 8 ? <Chip>{v.bitDepth}-bit</Chip> : null}
                 {v && v.hdr !== "sdr" ? <Chip tone="run">{v.hdr === "pq" ? "HDR10/PQ" : "HLG"}</Chip> : null}
                 <Chip>{clock(s.info.duration)}</Chip>
                 <Chip>{bytes(s.info.size)}</Chip>
-                <Chip>{s.info.audio.length ? `${s.info.audio.length} 条音轨` : "无音轨"}</Chip>
-                {s.info.subtitles.length > 0 && <Chip>{s.info.subtitles.length} 条字幕</Chip>}
+                <Chip>{s.info.audio.length ? t("media.audioCount", { n: s.info.audio.length }) : t("media.noAudio")}</Chip>
+                {s.info.subtitles.length > 0 && <Chip>{t("media.subtitleCount", { n: s.info.subtitles.length })}</Chip>}
               </span>
             )}
           </div>
           {p?.ok && p.plannedOutput && (
             <div className="item__sub" title={p.plannedOutput}>
               <span>→ {middleTruncate(fileName(p.plannedOutput), 56)}</span>
-              {p.summary?.estSize && p.summary.estReliability !== "unknown" ? <span>约 {bytes(p.summary.estSize)}</span> : null}
+              {p.summary?.estSize && p.summary.estReliability !== "unknown" ? <span>{t("common.approx", { value: bytes(p.summary.estSize) })}</span> : null}
             </div>
           )}
         </div>

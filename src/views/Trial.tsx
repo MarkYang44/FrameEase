@@ -28,7 +28,7 @@ function Compare({ before, after }: { before: string | null; after: string | nul
         if (e.buttons === 1) move(e);
       }}
       role="slider"
-      aria-label="原片与结果对比"
+      aria-label={t("trial.compareLabel")}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(x)}
@@ -149,9 +149,9 @@ export function TrialDialog({ open, onClose }: { open: boolean; onClose: () => v
                 value={duration}
                 onChange={setDuration}
                 options={[
-                  { value: "5", label: "5 秒" },
-                  { value: "10", label: "10 秒" },
-                  { value: "20", label: "20 秒" },
+                  { value: "5", label: t("time.seconds", { n: 5 }) },
+                  { value: "10", label: t("time.seconds", { n: 10 }) },
+                  { value: "20", label: t("time.seconds", { n: 20 }) },
                 ]}
               />
             </Field>
@@ -177,21 +177,21 @@ export function TrialDialog({ open, onClose }: { open: boolean; onClose: () => v
                 <div className="metric">
                   <div className="metric__v">{bytes(result.bytes)}</div>
                   <div className="metric__l">
-                    {t("trial.size")}（{result.segmentSecs.toFixed(0)} 秒
-                    {result.sourceSegmentBytes ? `，原片约 ${bytes(result.sourceSegmentBytes)}` : ""}）
+                    {t("trial.size")} ({t("time.seconds", { n: result.segmentSecs.toFixed(0) })}
+                    {result.sourceSegmentBytes ? t("trial.sourceSize", { size: bytes(result.sourceSegmentBytes) }) : ""})
                   </div>
                 </div>
                 {result.estFullBytes !== null && (
                   <div className="metric">
                     <div className="metric__v">≈ {bytes(result.estFullBytes)}</div>
-                    <div className="metric__l">{t("trial.estimate")}（估计）</div>
+                    <div className="metric__l">{t("trial.estimate")}{t("trial.estimated")}</div>
                   </div>
                 )}
                 {result.speed !== null && (
                   <div className="metric">
                     <div className="metric__v">{result.speed.toFixed(2)}×</div>
                     <div className="metric__l">
-                      {t("trial.speed")}（用时 {result.encodeSecs.toFixed(1)} 秒）
+                      {t("trial.speed")}{t("trial.elapsed", { n: result.encodeSecs.toFixed(1) })}
                     </div>
                   </div>
                 )}
@@ -215,9 +215,9 @@ export function TrialDialog({ open, onClose }: { open: boolean; onClose: () => v
                 )}
               </div>
               <p className="small muted" style={{ margin: 0 }}>
-                {t("trial.estimateHint")} {result.summary.lossless ? "无损结果以完成后的逐帧校验为准。" : t("trial.metricsHint")}
+                {t("trial.estimateHint")} {result.summary.lossless ? t("trial.losslessHint") : t("trial.metricsHint")}
               </p>
-              <Field label={`${t("trial.compare")}：片段内 ${clock(at)}`}>
+              <Field label={t("trial.compareAt", { compare: t("trial.compare"), time: clock(at) })}>
                 <Slider label={t("trial.compare")} min={0} max={Math.max(0.1, result.segmentSecs - 0.1)} step={0.1} value={at} onChange={setAt} />
               </Field>
               <Compare before={frames.before} after={frames.after} />
@@ -233,7 +233,7 @@ export function TrialDialog({ open, onClose }: { open: boolean; onClose: () => v
             onClose();
           }}
         >
-          关闭
+          {t("common.close")}
         </Button>
       </div>
     </Dialog>

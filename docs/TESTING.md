@@ -1,5 +1,34 @@
 # 测试记录
 
+## 界面与图标更新（2026-11-04）
+
+本轮在同一台 macOS / Apple Silicon 机器上验证。新增浏览器测试使用明确标识的模拟预览和合成媒体信息，仅验证布局与翻译；真实编码正确性仍由 Rust / FFmpeg 集成测试负责。
+
+```bash
+npm test
+npm run typecheck
+npm run build
+npx playwright install chromium
+npm run test:ui
+npm run icons
+```
+
+本机也可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 指向已安装的 Chrome；未设置时使用 Playwright 安装的 Chromium。
+
+| 检查 | 本轮结果与范围 |
+| --- | --- |
+| 前端单元测试 | 7 项通过；中英词典键与参数一致、英文无中文回退、提示与时间单位、历史校验文本、内置与用户预设名称 |
+| 浏览器回归 | 5 项通过；跨页面与缩放时设置按钮保持底部、通知不分走导航高度、右栏长文本与英文控件不横向溢出、保持挂载的缓存队列行切换语言、载入媒体后的截取/轨道/信息页及复制报告 |
+| 图标 | 原图副本与用户提供图片一致；PNG 尺寸正确；ICO 含 16/24/32/48/64/256 像素；ICNS 容器有效；打包 `.app` 内的 ICNS 与生成资源逐字节一致 |
+| 前端与桌面构建 | 类型检查、前端生产构建与最终 macOS `.app` 打包通过 |
+| Rust 核心 | 165 项通过（135 单元 + 30 集成）；新增空名称预设的本地化默认名回归，保留用户填写名称。沙箱内 VideoToolbox 不可用，宿主权限复核全部通过 |
+| 静态检查 | `cargo clippy -p frameease --all-targets --features dev-bridge -- -D warnings` 通过 |
+| Windows | 本轮更新了 ICO、PNG、安装包描述与 CI 检查，未在 Windows 上重新打包或实机运行 |
+
+GitHub Actions 已增加前端单元测试与浏览器回归步骤；本轮尚未推送，新增步骤尚无远端运行结果。README 新截图来自英文浏览器预览，保留模拟数据提示。
+
+下方为此前核心功能验证的历史记录。
+
 ## 本次测试环境
 
 | 项目 | 值 |

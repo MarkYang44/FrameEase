@@ -2,7 +2,7 @@ import { AudioLines, FileVideo2, FolderOpen, Gauge, Info, Ruler, ShieldCheck } f
 import { toast } from "sonner";
 import { api, pickPaths, pickSavePath } from "../lib/api";
 import { bytes, codecLabel, fileName } from "../lib/format";
-import { notice, t } from "../lib/i18n";
+import { notice, presetName, t } from "../lib/i18n";
 import { useStore } from "../lib/store";
 import type { AudioCodec, JobSettings, Rotate, Speed, VideoCodec, VideoMode } from "../lib/types";
 import { Button, Check, Disclosure, Field, Menu, Segmented, Slider, Tooltip } from "../components/ui";
@@ -47,7 +47,7 @@ export function Inspector() {
     });
 
   return (
-    <aside className="inspector" aria-label="输出设置">
+    <aside className="inspector" aria-label={t("ins.output")}>
       <div className="ins__body">
         <PresetRow />
 
@@ -58,13 +58,13 @@ export function Inspector() {
             value={v.codec}
             onChange={setCodec}
             options={[
-              { value: "h264", label: "H.264", disabled: copy, hint: "兼容性最好，几乎所有设备都能播放" },
-              { value: "hevc", label: "HEVC", disabled: copy, hint: "同画质下比 H.264 小约 30–50%，较新的设备支持" },
-              { value: "av1", label: "AV1", disabled: copy, hint: "压缩率最高，编码较慢，较新的设备才能硬件解码" },
-              { value: "ffv1", label: "FFV1", disabled: copy, hint: "无损存档格式，只能放在 MKV 中，体积大、兼容性有限" },
+              { value: "h264", label: "H.264", disabled: copy, hint: t("codec.h264Hint") },
+              { value: "hevc", label: "HEVC", disabled: copy, hint: t("codec.hevcHint") },
+              { value: "av1", label: "AV1", disabled: copy, hint: t("codec.av1Hint") },
+              { value: "ffv1", label: "FFV1", disabled: copy, hint: t("codec.ffv1Hint") },
             ]}
           />
-          {copy && <p className="ins__explain">流复制会保留原视频的编码，不使用这里的编码选择。</p>}
+          {copy && <p className="ins__explain">{t("codec.copyHint")}</p>}
         </div>
 
         <div className="ins__group">
@@ -74,7 +74,7 @@ export function Inspector() {
             value={v.mode}
             onChange={setMode}
             options={[
-              { value: "lossy", label: t("mode.lossy"), disabled: v.codec === "ffv1", hint: v.codec === "ffv1" ? "FFV1 只用于无损" : undefined },
+              { value: "lossy", label: t("mode.lossy"), disabled: v.codec === "ffv1", hint: v.codec === "ffv1" ? t("codec.ffv1Only") : undefined },
               { value: "lossless", label: t("mode.lossless") },
               { value: "copy", label: t("mode.copy") },
             ]}
@@ -97,10 +97,10 @@ export function Inspector() {
                 })
               }
               options={[
-                { value: "gpu", label: t("speed.gpu"), disabled: !gpuOk, hint: !gpuOk ? (lossy ? t("speed.gpuNone", { codec: codecLabel(v.codec) }) : "无损模式只使用经过验证的 CPU 编码器") : "使用显卡/媒体引擎编码：速度最快，同画质下体积稍大" },
+                { value: "gpu", label: t("speed.gpu"), disabled: !gpuOk, hint: !gpuOk ? (lossy ? t("speed.gpuNone", { codec: codecLabel(v.codec) }) : t("speed.losslessHint")) : t("speed.gpuHint") },
                 { value: "fast", label: t("speed.fast") },
                 { value: "balanced", label: t("speed.balanced") },
-                { value: "slow", label: t("speed.slow"), hint: "编码更慢，同画质下体积更小" },
+                { value: "slow", label: t("speed.slow"), hint: t("speed.slowHint") },
               ]}
             />
             {choice?.issue ? (
@@ -108,7 +108,7 @@ export function Inspector() {
             ) : (
               choice?.label && (
                 <p className="ins__explain">
-                  {t("speed.uses", { label: choice.label })}（{choice.hardware ? t("speed.hardware") : t("speed.cpuThreads", { n: status?.threadsPerJob ?? "—" })}）
+                  {t("speed.uses", { label: choice.label })} ({choice.hardware ? t("speed.hardware") : t("speed.cpuThreads", { n: status?.threadsPerJob ?? "—" })})
                 </p>
               )
             )}
@@ -143,30 +143,30 @@ function PresetRow() {
       const p = await api.presetSave(name, settings);
       await refresh();
       useStore.setState({ presetId: p.id });
-      toast.success(`已保存预设“${p.name}”`);
+      toast.success(t("preset.saved", { name: p.name }));
     } catch (e) {
       toast.error(String(e));
     }
   };
   const importP = async () => {
-    const [path] = await pickPaths({ multiple: false, filters: [{ name: "FrameEase 预设", extensions: ["json"] }] });
+    const [path] = await pickPaths({ multiple: false, filters: [{ name: t("preset.filter"), extensions: ["json"] }] });
     if (!path) return;
     try {
       const p = await api.presetImport(path);
       await refresh();
       applyPreset(p);
-      toast.success(`已导入预设“${p.name}”`);
+      toast.success(t("preset.imported", { name: p.name }));
     } catch (e) {
-      toast.error(`无法导入：${String(e)}`);
+      toast.error(t("preset.importFailed", { error: String(e) }));
     }
   };
   const exportP = async () => {
     if (!current) return;
-    const path = await pickSavePath(`${current.name}.frameease-preset.json`, [{ name: "FrameEase 预设", extensions: ["json"] }]);
+    const path = await pickSavePath(`${presetName(current)}.frameease-preset.json`, [{ name: t("preset.filter"), extensions: ["json"] }]);
     if (!path) return;
     try {
       await api.presetExport(current.id, path);
-      toast.success("已导出预设");
+      toast.success(t("preset.exported"));
     } catch (e) {
       toast.error(String(e));
     }
@@ -183,21 +183,21 @@ function PresetRow() {
       <Menu
         trigger={({ toggle, open }) => (
           <Button className="grow" onClick={toggle} aria-haspopup="menu" aria-expanded={open} style={{ justifyContent: "space-between" }}>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{current?.name ?? t("ins.presetCustom")}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{current ? presetName(current) : t("ins.presetCustom")}</span>
             <span className="muted">▾</span>
           </Button>
         )}
         items={[
-          { label: "内置预设", heading: true },
-          ...presets.filter((p) => p.builtin).map((p) => ({ label: p.name, checked: p.id === presetId, onSelect: () => applyPreset(p) })),
-          ...(presets.some((p) => !p.builtin) ? [{ label: "我的预设", heading: true }] : []),
-          ...presets.filter((p) => !p.builtin).map((p) => ({ label: p.name, checked: p.id === presetId, onSelect: () => applyPreset(p) })),
+          { label: t("preset.builtin"), heading: true },
+          ...presets.filter((p) => p.builtin).map((p) => ({ label: presetName(p), checked: p.id === presetId, onSelect: () => applyPreset(p) })),
+          ...(presets.some((p) => !p.builtin) ? [{ label: t("preset.mine"), heading: true }] : []),
+          ...presets.filter((p) => !p.builtin).map((p) => ({ label: presetName(p), checked: p.id === presetId, onSelect: () => applyPreset(p) })),
         ]}
       />
       <Menu
         align="right"
         trigger={({ toggle }) => (
-          <Button onClick={toggle} aria-label="预设操作">
+          <Button onClick={toggle} aria-label={t("preset.actions")}>
             ⋯
           </Button>
         )}
@@ -265,14 +265,14 @@ function QualityGroup() {
             }
           />
           <div className="ticks" aria-hidden>
-            <span>画质优先</span>
-            <span>体积优先</span>
+            <span>{t("q.preferQuality")}</span>
+            <span>{t("q.preferSize")}</span>
           </div>
           <p className="ins__explain">{t("q.sizeUnknown")}</p>
         </>
       ) : (
         <p className="ins__explain">
-          {rate.kind === "bitrate" ? `目标码率 ${rate.kbps} kbps` : `目标体积 ${rate.megabytes} MB`}（在“高级设置”中修改）。体积按码率估算，实际会有偏差。
+          {rate.kind === "bitrate" ? t("q.targetBitrate", { n: rate.kbps }) : t("q.targetSize", { n: rate.megabytes })}{t("q.targetHint")}
         </p>
       )}
     </div>
@@ -288,7 +288,7 @@ function AudioGroup() {
     { value: "aac", label: "AAC", encoder: "aac" },
     { value: "opus", label: "Opus", encoder: "libopus" },
     { value: "mp3", label: "MP3", encoder: "libmp3lame" },
-    { value: "flac", label: "FLAC（无损）", encoder: "flac" },
+    { value: "flac", label: t("audio.flac"), encoder: "flac" },
   ];
   return (
     <div className="ins__group">
@@ -298,7 +298,7 @@ function AudioGroup() {
         value={a.mode}
         onChange={(m) => update((x) => void (x.audio.mode = m))}
         options={[
-          { value: "copy", label: t("audio.copy"), hint: "原样保留音频数据，不损失音质，完成后用数据哈希校验" },
+          { value: "copy", label: t("audio.copy"), hint: t("audio.copyHint") },
           { value: "transcode", label: t("audio.transcode") },
           { value: "none", label: t("audio.none") },
         ]}
@@ -359,11 +359,11 @@ function SubtitleGroup({ libass }: { libass: boolean }) {
   const sub = s.subtitles;
   const reencode = s.video.mode === "lossy";
   const addExternal = async () => {
-    const paths = await pickPaths({ multiple: true, filters: [{ name: "字幕", extensions: ["srt", "ass", "ssa", "vtt", "sup"] }] });
+    const paths = await pickPaths({ multiple: true, filters: [{ name: t("common.subtitles"), extensions: ["srt", "ass", "ssa", "vtt", "sup"] }] });
     if (paths.length) update((x) => x.subtitles.external.push(...paths.map((p) => ({ path: p, language: null }))));
   };
   const burnExternal = async () => {
-    const [p] = await pickPaths({ multiple: false, filters: [{ name: "字幕", extensions: ["srt", "ass", "ssa", "vtt", "sup"] }] });
+    const [p] = await pickPaths({ multiple: false, filters: [{ name: t("common.subtitles"), extensions: ["srt", "ass", "ssa", "vtt", "sup"] }] });
     if (p) update((x) => void (x.subtitles.burn = { kind: "external", path: p }));
   };
   return (
@@ -379,9 +379,9 @@ function SubtitleGroup({ libass }: { libass: boolean }) {
           })
         }
         options={[
-          { value: "keep", label: t("subs.keep"), hint: "软字幕：保留在文件里，播放时可开关。MP4 中文字字幕会转为 mov_text" },
+          { value: "keep", label: t("subs.keep"), hint: t("subs.keepHint") },
           { value: "none", label: t("subs.none") },
-          { value: "burn", label: t("subs.burn"), disabled: !reencode, hint: reencode ? "把字幕画进画面，无法再关闭" : "烧录需要有损重新编码" },
+          { value: "burn", label: t("subs.burn"), disabled: !reencode, hint: reencode ? t("subs.burnHint") : t("subs.burnRequiresLossy") },
         ]}
       />
       {sub.mode === "keep" && (
@@ -398,7 +398,7 @@ function SubtitleGroup({ libass }: { libass: boolean }) {
                 value={e.language ?? ""}
                 onChange={(ev) => update((x) => void (x.subtitles.external[i].language = ev.target.value || null))}
               />
-              <button className="icon-btn" aria-label="移除" onClick={() => update((x) => void x.subtitles.external.splice(i, 1))}>
+              <button className="icon-btn" aria-label={t("common.remove")} onClick={() => update((x) => void x.subtitles.external.splice(i, 1))}>
                 ×
               </button>
             </div>
@@ -413,7 +413,7 @@ function SubtitleGroup({ libass }: { libass: boolean }) {
           <div className="row">
             <select
               className="select grow"
-              aria-label="烧录来源"
+              aria-label={t("subs.burnSource")}
               value={sub.burn?.kind === "external" ? "external" : String(sub.burn?.kind === "embedded" ? sub.burn.ordinal : 0)}
               onChange={(e) => {
                 if (e.target.value === "external") burnExternal();
@@ -422,10 +422,10 @@ function SubtitleGroup({ libass }: { libass: boolean }) {
             >
               {[0, 1, 2, 3].map((n) => (
                 <option key={n} value={n}>
-                  内嵌字幕第 {n + 1} 条
+                  {t("subs.embedded", { n: n + 1 })}
                 </option>
               ))}
-              <option value="external">{sub.burn?.kind === "external" ? fileName(sub.burn.path) : "外挂字幕文件…"}</option>
+              <option value="external">{sub.burn?.kind === "external" ? fileName(sub.burn.path) : t("subs.externalFile")}</option>
             </select>
           </div>
           {!libass && <p className="ins__explain bad-text">{t("subs.burnNoLibass")}</p>}
@@ -455,8 +455,8 @@ function OutputGroup() {
         value={o.container}
         onChange={(c) => update((x) => void (x.output.container = c))}
         options={[
-          { value: "mp4", label: "MP4", disabled: s.video.codec === "ffv1" && s.video.mode !== "copy", hint: "兼容性最好" },
-          { value: "mkv", label: "MKV", hint: "几乎能放任何轨道，适合多音轨/字幕/无损" },
+          { value: "mp4", label: "MP4", disabled: s.video.codec === "ffv1" && s.video.mode !== "copy", hint: t("out.mp4Hint") },
+          { value: "mkv", label: "MKV", hint: t("out.mkvHint") },
         ]}
       />
       <div className="row">
@@ -469,7 +469,7 @@ function OutputGroup() {
             else update((x) => void (x.output.dir = "besideSource"));
           }}
         >
-          <option value="besideSource">{t("out.beside", { name: o.subfolder || "同一" })}</option>
+          <option value="besideSource">{t("out.beside", { name: o.subfolder || t("out.same") })}</option>
           <option value="custom">{o.customDir ? o.customDir : t("out.custom")}</option>
         </select>
         <Button onClick={choose} aria-label={t("out.choose")}>
@@ -487,8 +487,8 @@ function OutputGroup() {
             value={o.conflict}
             onChange={(c) => update((x) => void (x.output.conflict = c))}
             options={[
-              { value: "rename", label: t("out.rename"), hint: "生成“名字 (2).mp4”，从不覆盖已有文件" },
-              { value: "skip", label: t("out.skip"), hint: "已有同名输出时跳过该文件" },
+              { value: "rename", label: t("out.rename"), hint: t("out.renameHint") },
+              { value: "skip", label: t("out.skip"), hint: t("out.skipHint") },
             ]}
           />
         </div>
@@ -544,14 +544,14 @@ function Advanced() {
           )}
           {rate.kind === "bitrate" && (
             <div className="row small">
-              <span className="muted grow">平均码率</span>
+              <span className="muted grow">{t("adv.averageBitrate")}</span>
               <input className="input input--num" type="number" min={100} value={rate.kbps} onChange={(e) => update((x) => void (x.video.rate = { ...rate, kbps: Math.max(50, Number(e.target.value)) }))} />
               <span className="muted">kbps</span>
             </div>
           )}
           {rate.kind === "targetSize" && (
             <div className="row small">
-              <span className="muted grow">整个文件</span>
+              <span className="muted grow">{t("adv.wholeFile")}</span>
               <input className="input input--num" type="number" min={1} value={rate.megabytes} onChange={(e) => update((x) => void (x.video.rate = { ...rate, megabytes: Math.max(1, Number(e.target.value)) }))} />
               <span className="muted">MB</span>
             </div>
@@ -579,7 +579,7 @@ function Advanced() {
             <option value="">{t("adv.encoderAuto")}</option>
             {choice.options.map((o) => (
               <option key={o.name} value={o.name} disabled={!o.usable || (v.mode === "lossless" && o.hardware)}>
-                {o.label}（{o.hardware ? "GPU" : "CPU"}）{o.usable ? "" : " 不可用"}
+                {o.label} ({o.hardware ? "GPU" : "CPU"}){o.usable ? "" : ` ${t("set.unavailable")}`}
               </option>
             ))}
           </select>
@@ -615,14 +615,14 @@ function Advanced() {
           <Field label={t("adv.rotate")}>
             <select className="select" value={tf.rotate ?? ""} onChange={(e) => update((x) => void (x.video.transforms.rotate = (e.target.value || null) as Rotate | null))}>
               <option value="">{t("adv.none")}</option>
-              <option value="cw90">顺时针 90°</option>
-              <option value="ccw90">逆时针 90°</option>
+              <option value="cw90">{t("adv.cw90")}</option>
+              <option value="ccw90">{t("adv.ccw90")}</option>
               <option value="r180">180°</option>
-              <option value="flipH">水平翻转</option>
-              <option value="flipV">垂直翻转</option>
+              <option value="flipH">{t("adv.flipH")}</option>
+              <option value="flipV">{t("adv.flipV")}</option>
             </select>
           </Field>
-          <Field label={t("adv.crop")} hint="按显示方向，从四边各裁去的像素；奇数会向下取偶">
+          <Field label={t("adv.crop")} hint={t("adv.cropHint")}>
             <div className="row">
               {(["left", "top", "right", "bottom"] as const).map((k) => (
                 <input
@@ -631,8 +631,8 @@ function Advanced() {
                   style={{ width: "25%" }}
                   type="number"
                   min={0}
-                  aria-label={{ left: "左", top: "上", right: "右", bottom: "下" }[k]}
-                  placeholder={{ left: "左", top: "上", right: "右", bottom: "下" }[k]}
+                  aria-label={{ left: t("adv.left"), top: t("adv.top"), right: t("adv.right"), bottom: t("adv.bottom") }[k]}
+                  placeholder={{ left: t("adv.left"), top: t("adv.top"), right: t("adv.right"), bottom: t("adv.bottom") }[k]}
                   value={tf.crop?.[k] || ""}
                   onChange={(e) =>
                     update((x) => {
@@ -691,11 +691,11 @@ function Summary() {
     v.rate.kind === "bitrate"
       ? `${v.rate.kbps} kbps`
       : v.rate.kind === "targetSize"
-        ? `目标 ${v.rate.megabytes} MB`
+        ? t("job.targetSize", { n: v.rate.megabytes })
         : q
           ? `${choice?.label} ${q.kind} ${Number.isInteger(q.value) ? q.value : q.value.toFixed(1)}`
           : "—";
-  const where = s.output.dir === "custom" && s.output.customDir ? s.output.customDir : `源文件旁的“${s.output.subfolder}”`;
+  const where = s.output.dir === "custom" && s.output.customDir ? s.output.customDir : t("out.besideLocation", { name: s.output.subfolder });
   const a = s.audio;
   return (
     <div className="summary" aria-live="polite">
@@ -707,7 +707,7 @@ function Summary() {
       <div className="summary__line">
         <FileVideo2 size={14} />
         <span>
-          输出 <strong>{v.mode === "copy" ? "原视频编码" : codecLabel(v.codec)}</strong>，封装为 <strong>{s.output.container.toUpperCase()}</strong>
+          {t("sum.output", { codec: v.mode === "copy" ? t("sum.sourceCodec") : codecLabel(v.codec), container: s.output.container.toUpperCase() })}
         </span>
       </div>
       <div className="summary__line">
@@ -715,7 +715,7 @@ function Summary() {
         <span>
           {v.mode === "lossy" && (
             <>
-              <strong>有损压缩</strong>，{quality}
+              <strong>{t("common.lossy")}</strong>, {quality}
             </>
           )}
           {v.mode === "lossless" && <strong>{t("sum.lossless")}</strong>}
@@ -724,11 +724,11 @@ function Summary() {
       </div>
       <div className="summary__line">
         <Ruler size={14} />
-        <span>{total ? t("sum.sizeEstimate", { size: bytes(total) }) : v.mode === "lossless" ? "体积：通常明显大于原文件" : t("sum.sizeUnknown")}</span>
+        <span>{total ? t("sum.sizeEstimate", { size: bytes(total) }) : v.mode === "lossless" ? t("sum.losslessSize") : t("sum.sizeUnknown")}</span>
       </div>
       <div className="summary__line">
         <AudioLines size={14} />
-        <span>{a.mode === "copy" ? t("sum.audioCopy") : a.mode === "none" ? t("sum.audioNone") : t("sum.audioTranscode", { codec: a.codec.toUpperCase(), kbps: a.codec === "flac" ? "无损" : a.bitrateKbps })}</span>
+        <span>{a.mode === "copy" ? t("sum.audioCopy") : a.mode === "none" ? t("sum.audioNone") : a.codec === "flac" ? t("sum.audioFlac") : t("sum.audioTranscode", { codec: a.codec.toUpperCase(), kbps: a.bitrateKbps })}</span>
       </div>
       <div className="summary__line">
         <FolderOpen size={14} />
