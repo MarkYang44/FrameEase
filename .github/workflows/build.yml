@@ -11,9 +11,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14 # Apple Silicon
-          - os: macos-13 # Intel
+          - os: macos-15 # Apple Silicon
           - os: windows-latest
+    # No Intel Mac job: Homebrew no longer publishes x86_64 macOS bottles of FFmpeg, so
+    # an Intel runner has no FFmpeg to bundle (see docs/TESTING.md).
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -27,13 +28,17 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      # macOS: Homebrew FFmpeg made relocatable. Its minimum macOS is the runner's
-      # OS version, so the app's minimum is set from the bundled binaries.
+      # Steps run through scripts/ci-step.sh repeat their error output as annotations,
+      # so a failure is readable on the run page without opening the logs.
+
+      # macOS: Homebrew's FFmpeg 8 (the version the app is verified with), made
+      # relocatable. Its minimum macOS is the runner's OS version, so the app's minimum
+      # is set from the bundled binaries.
       - name: FFmpeg (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install ffmpeg
-          python3 scripts/bundle_ffmpeg_macos.py
+          bash scripts/ci-step.sh "brew install" brew install ffmpeg@8
+          bash scripts/ci-step.sh "Bundle FFmpeg" python3 scripts/bundle_ffmpeg_macos.py "$(brew --prefix ffmpeg@8)/bin"
           MINOS=$(otool -l src-tauri/resources/ffmpeg/ffmpeg | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
           python3 -c "import json,sys; p='src-tauri/tauri.bundle.json'; d=json.load(open(p)); d['bundle']['macOS']['minimumSystemVersion']=sys.argv[1]; json.dump(d,open(p,'w'),indent=2)" "$MINOS"
           echo "Bundled FFmpeg requires macOS $MINOS"
@@ -48,17 +53,21 @@ jobs:
 
       - name: Generate synthetic test media
         shell: bash
-        run: bash scripts/gen-test-media.sh test-media src-tauri/resources/ffmpeg
+        run: bash scripts/ci-step.sh "Test media" bash scripts/gen-test-media.sh test-media src-tauri/resources/ffmpeg
 
       # Unit + end-to-end tests against the real backend (includes the locked-CSV regression).
+      # --no-fail-fast: report every failing test binary, not just the first.
       - name: Core tests
-        run: cargo test -p fe-core -- --test-threads=2
+        shell: bash
+        run: bash scripts/ci-step.sh "Core tests" cargo test -p fe-core --no-fail-fast -- --test-threads=2
 
       - name: Frontend type check
-        run: npm run typecheck
+        shell: bash
+        run: bash scripts/ci-step.sh "Type check" npm run typecheck
 
       - name: Package
-        run: npx tauri build --config src-tauri/tauri.bundle.json
+        shell: bash
+        run: bash scripts/ci-step.sh "Package" npx tauri build --config src-tauri/tauri.bundle.json
 
       - uses: actions/upload-artifact@v4
         with:

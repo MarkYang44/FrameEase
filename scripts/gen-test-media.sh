@@ -6,8 +6,11 @@ set -euo pipefail
 
 OUT="${1:-$(cd "$(dirname "$0")/.." && pwd)/test-media}"
 BIN="${2:-}"
-FF="${BIN:+$BIN/}ffmpeg"
 mkdir -p "$OUT"
+# Make both paths absolute before changing directory: callers such as CI pass relative ones.
+OUT="$(cd "$OUT" && pwd)"
+if [ -n "$BIN" ]; then BIN="$(cd "$BIN" && pwd)"; fi
+FF="${BIN:+$BIN/}ffmpeg"
 cd "$OUT"
 
 ff() { "$FF" -hide_banner -loglevel error -y "$@"; }
