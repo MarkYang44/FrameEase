@@ -19,6 +19,10 @@ function Test-Unpacked([string]$label, [string]$dir) {
   if (($got -join "|") -ne ($want -join "|")) {
     throw "${label}: its ffmpeg folder holds [$($got -join ', ')], expected [$($want -join ', ')]"
   }
+  # The app's About section points to this list next to the ffmpeg folder.
+  if (-not (Test-Path (Join-Path (Split-Path $ff.DirectoryName) "THIRD_PARTY_LICENSES.md"))) {
+    throw "${label}: THIRD_PARTY_LICENSES.md is missing next to the ffmpeg folder"
+  }
   $savedPath = $env:PATH
   $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
   try {
