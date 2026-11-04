@@ -85,6 +85,8 @@ test("all inspector modes and preset menus fit in an English minimum-size window
   await expect(page.getByRole("menu")).toContainText("H.264 · Balanced (compatible)");
   await expect(page.getByRole("menu")).not.toContainText("均衡");
   await page.keyboard.press("Escape");
+  // The closing menu stays mounted for its exit animation on slower machines.
+  await expect(page.getByRole("menu")).toHaveCount(0);
   await inspector.getByRole("button", { name: "Preset actions" }).click();
   await expect(page.getByRole("menu")).toBeVisible();
   const box = await page.getByRole("menu").boundingBox();
