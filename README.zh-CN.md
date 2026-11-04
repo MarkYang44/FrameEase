@@ -12,7 +12,7 @@
 ![macOS and Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-3457D5)](LICENSE)
 
-[下载 v0.1.1](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.1) · [快速开始](#快速开始) · [开发](#开发) · [文档](#文档)
+[下载 v0.1.2](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.2) · [快速开始](#快速开始) · [开发](#开发) · [文档](#文档)
 
 ## 概览
 
@@ -56,6 +56,8 @@ FrameEase 将 H.264、HEVC、AV1 和 FFV1 处理流程与持久化批量队列�
 | **macOS · Apple Silicon** | 已在本机开发与测试；CI 生成 `.app` 和 `.dmg`。最低系统版本由随包 FFmpeg 依赖决定，本机打包配置目前要求 macOS 26.0+。 |
 | **Windows 10/11 · x64** | Windows CI 已通过核心测试及 NSIS/MSI 打包；实体 Windows 桌面验证仍待完成。需要 WebView2，缺失时安装程序提供安装入口。 |
 | **macOS · Intel** | 当前 CI 不提供安装包，尚未实机验证；从源码构建需要兼容的 Intel 版 FFmpeg。 |
+
+Windows 免安装版下载 `FrameEase_<版本>_windows-x64-portable.zip`，**完整解压**后双击 **FrameEase.exe**。请保留程序旁的 `ffmpeg` 文件夹。ZIP 已包含 FFmpeg 及其 DLL，使用系统已有的 WebView2 Runtime；设置和队列仍保存在当前用户的应用数据目录，与安装版一致。详见[免安装包说明](docs/WINDOWS_PORTABLE.txt)。
 
 macOS 打开 DMG 后将 FrameEase 拖入 Applications；Windows 使用 `.exe` 安装到当前用户，或使用 `.msi` 按机器安装。使用 bundle 配置构建的安装包包含 FFmpeg。
 
@@ -130,12 +132,14 @@ Windows PowerShell：
 
 ```powershell
 pwsh ./scripts/fetch-ffmpeg-windows.ps1
+$env:STATIC_VCRUNTIME = "true"
 npm run app:build
+npm run windows:portable
 ```
 
 产物位于 `target/release/bundle/`。打包时请确保 macOS 最低版本与附带依赖一致。
 
-推送与应用版本一致的 `v*` 标签后，工作流会构建双平台安装包、检查 Windows 安装包内容，并附带 SHA-256 校验和及 `docs/releases/<tag>.md` 发布说明。
+推送与应用版本一致的 `v*` 标签后，工作流会构建双平台安装包和 Windows 免安装 ZIP、验证免安装包启动并检查安装包内容，并附带 SHA-256 校验和及 `docs/releases/<tag>.md` 发布说明。
 
 图标原图为 `assets/app-icon.png`，运行 `npm run icons` 可重新生成桌面 PNG、ICNS、ICO 与 Windows 磁贴资源。
 

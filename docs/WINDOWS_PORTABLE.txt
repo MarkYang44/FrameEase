@@ -1,0 +1,37 @@
+FrameEase for Windows x64 - no-install ZIP
+========================================
+
+1. Extract the ENTIRE ZIP to a folder you can write to.
+2. Open FrameEase.exe. No FrameEase installer or administrator rights are needed.
+3. Keep the ffmpeg folder and its DLLs beside FrameEase.exe. Move the whole folder
+   together; running only the EXE from inside the ZIP will not work correctly.
+
+This package uses the Microsoft Edge WebView2 Runtime already installed on your
+computer. Windows 11 includes it and most Windows 10 PCs have it. If it is missing,
+install the Evergreen Runtime from Microsoft's official page:
+https://developer.microsoft.com/microsoft-edge/webview2/
+This ZIP does not silently install or download a runtime.
+
+Settings, queue state and results remain in the current user's application-data
+folder, as in the installed version. This is a no-install application package;
+it does not move your existing settings or queues to the extracted folder.
+Processing files and choosing an output destination work as usual.
+
+Project: https://github.com/MarkYang44/FrameEase
+License: LICENSE and THIRD_PARTY_LICENSES.md. FFmpeg notices are in ffmpeg/.
+
+
+FrameEase Windows x64 免安装版
+============================
+
+1. 将整个 ZIP 解压到有写入权限的文件夹。
+2. 双击 FrameEase.exe 即可启动，无需安装 FrameEase，也不需要管理员权限。
+3. ffmpeg 文件夹及其 DLL 必须保留在程序旁。移动时请移动整个文件夹，
+   不要只在压缩包里双击 EXE，也不要只复制 EXE。
+
+此版本使用电脑已有的 Microsoft Edge WebView2 Runtime。Windows 11 自带，
+大多数 Windows 10 电脑也已安装；缺少时，请从上面的微软官网安装 Evergreen Runtime。
+该 ZIP 不会自动安装或下载运行时。
+
+设置、队列和结果记录仍保存在当前用户的应用数据目录，与安装版一致。
+免安装版不会将已有设置或队列搬到解压目录中。视频处理和输出位置选择方式不变。
