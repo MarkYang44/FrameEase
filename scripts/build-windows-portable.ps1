@@ -10,7 +10,9 @@ $package = $json | ConvertFrom-Json
 Compress-Archive -LiteralPath $package.directory -DestinationPath $package.zip -CompressionLevel Optimal -Force
 
 # Read back the actual archive from a Unicode/spaced path and compare every byte.
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ("FrameEase 解压测试 " + [guid]::NewGuid())
+# TEMP can contain an 8.3 alias (RUNNER~1) while Tauri reports a canonical path.
+$scratch = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Temp" }
+$tmp = Join-Path $scratch ("FrameEase 解压测试 " + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
   Expand-Archive -LiteralPath $package.zip -DestinationPath $tmp
@@ -55,7 +57,7 @@ try {
           # Tauri canonicalizes its executable path, which adds the Win32 long-path prefix.
           if ($actual.StartsWith('\\?\')) { $actual = $actual.Substring(4) }
           if (-not [String]::Equals($actual, $expected, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Portable startup selected an FFmpeg outside the extracted folder"
+            throw "Portable startup selected '$actual' instead of the extracted FFmpeg '$expected'"
           }
           $ready = $true
         }
