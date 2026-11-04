@@ -953,9 +953,13 @@ textarea {
   position: relative;
   display: inline-flex;
 }
+/* Menus and tooltips are rendered into <body> and placed by useFloating (ui.tsx),
+   so panels that scroll (inspector, queue) cannot clip them. Above dialogs (70). */
 .menu {
-  position: absolute;
-  z-index: 40;
+  position: fixed;
+  z-index: 80;
+  /* Intrinsic width, so measuring it does not depend on where it was last placed. */
+  width: max-content;
   min-width: 200px;
   max-width: 320px;
   padding: 4px;
@@ -963,7 +967,7 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-pop);
-  transform-origin: var(--origin, top left);
+  transform-origin: top left;
   opacity: 0;
   transform: scale(0.96);
   transition: opacity 120ms ease, transform 120ms var(--ease-out);
@@ -1020,10 +1024,8 @@ textarea {
   display: inline-flex;
 }
 .tip__bubble {
-  position: absolute;
-  z-index: 60;
-  bottom: calc(100% + 6px);
-  left: 50%;
+  position: fixed;
+  z-index: 90;
   width: max-content;
   max-width: 260px;
   padding: 6px 9px;
@@ -1035,15 +1037,17 @@ textarea {
   white-space: normal;
   pointer-events: none;
   opacity: 0;
-  transform: translate(-50%, 3px) scale(0.97);
-  transform-origin: bottom center;
+  transform: translateY(3px) scale(0.97);
   transition: opacity 125ms ease, transform 125ms var(--ease-out);
 }
-.tip[data-open="true"] .tip__bubble {
-  opacity: 1;
-  transform: translate(-50%, 0) scale(1);
+.tip__bubble[data-side="bottom"] {
+  transform: translateY(-3px) scale(0.97);
 }
-.tip[data-instant="true"] .tip__bubble {
+.tip__bubble[data-state="open"] {
+  opacity: 1;
+  transform: none;
+}
+.tip__bubble[data-instant="true"] {
   transition-duration: 0ms;
 }
 
@@ -1348,6 +1352,9 @@ textarea {
   }
   .menu,
   .menu[data-state="open"],
+  .tip__bubble,
+  .tip__bubble[data-side="bottom"],
+  .tip__bubble[data-state="open"],
   .dialog,
   .backdrop[data-state="open"] .dialog,
   .drop-overlay,
