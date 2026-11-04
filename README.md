@@ -8,9 +8,9 @@
 
 | 平台 | 状态 |
 |---|---|
-| macOS 27 · Apple Silicon（M5） | **已实机开发与测试**：163 项 Rust 测试全部通过（其中 29 项调用真实 FFmpeg 或真实子进程），端到端套件连续 15 轮压力复测无失败；桌面应用已实际启动运行；界面通过开发桥接连接真实后端验证并截图；已构建 `.app`/`.dmg`（见下方“打包”）。 |
-| macOS Intel | 未实机验证。代码无平台假设；GitHub Actions 已配置 `macos-13` 构建与测试，但**尚未在 CI 上实际运行过**。 |
-| Windows 10/11 x64 | 未实机验证。Windows 专用代码（无控制台窗口、Job Object 随应用退出结束子进程、`MoveFileExW` 不覆盖提交、Excel 式文件独占锁回归测试）已编写；`fe-core`（含测试代码）已用 `x86_64-pc-windows-msvc` 目标交叉编译检查通过，Tauri 外壳因需要 Windows 资源编译器（llvm-rc）无法在 macOS 上交叉检查；`windows-latest` CI 已配置但**尚未运行**。 |
+| macOS 27 · Apple Silicon（M5） | **已实机开发与测试**：164 项 Rust 测试全部通过（其中 30 项调用真实 FFmpeg 或真实子进程），端到端套件连续 15 轮压力复测无失败；桌面应用已实际启动运行；界面通过开发桥接连接真实后端验证并截图；已构建 `.app`/`.dmg`（见下方“打包”）。 |
+| macOS Intel | **未验证，目前也无法打包**。代码无平台假设，但没有可随包附带的 Intel 版 FFmpeg：Homebrew 已不再为 Intel Mac 提供 FFmpeg 预编译包，所以 CI 暂不构建 Intel 版本（见 [docs/TESTING.md](docs/TESTING.md)）。 |
+| Windows 10/11 x64 | **未在实体 Windows 电脑上验证**。GitHub Actions 的 Windows Server 2025 运行器上，核心测试（含 Excel 式文件独占锁回归测试、中文/日文/特殊字符路径、取消与重启恢复）与 NSIS/MSI 打包均已通过；该环境的一次运行暴露了无损自检的并发问题，已修复并补了回归测试。Windows 专用代码：无控制台窗口、Job Object 随应用退出结束子进程、`MoveFileExW` 不覆盖提交。 |
 
 ## 已实现
 
@@ -96,7 +96,7 @@ Windows 上用 `pwsh ./scripts/fetch-ffmpeg-windows.ps1` 获取 FFmpeg 后再 `n
 ### 关于 FFmpeg 与最低系统版本
 
 - 应用本身的最低要求：macOS 11（需系统 WebKit 16+，即 Big Sur 装最新更新）、Windows 10 x64（WebView2；缺失时安装程序会显示 WebView2 安装界面，不会静默安装）。
-- **随包附带的 FFmpeg 决定实际最低版本。** 本机构建打包的是 Homebrew FFmpeg 8.1.2，它和所有依赖库都要求 **macOS 26.0+**，所以本机生成的安装包在 `tauri.bundle.json` 中如实声明了 26.0。CI 在 `macos-14`/`macos-13` 上打包时会按实际库版本自动写入（14.0 / 13.0）。要支持更老的 macOS，可把任意兼容的 FFmpeg 目录交给 `python3 scripts/bundle_ffmpeg_macos.py <目录>`。
+- **随包附带的 FFmpeg 决定实际最低版本。** 本机构建打包的是 Homebrew FFmpeg 8.1.2，它和所有依赖库都要求 **macOS 26.0+**，所以本机生成的安装包在 `tauri.bundle.json` 中如实声明了 26.0。CI 在 `macos-15`（Apple Silicon）上用 Homebrew 的 `ffmpeg@8` 打包，最低版本按随包库的实际要求自动写入。要支持更老的 macOS，可把任意兼容的 FFmpeg 目录交给 `python3 scripts/bundle_ffmpeg_macos.py <目录>`。
 - 附带的 FFmpeg 启用了 GPL 组件，按 GPL 分发；应用以独立进程调用 FFmpeg。各依赖许可见 [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md)（由 `scripts/gen_licenses.py` 生成）。
 
 ### 开发桥接（仅调试版）

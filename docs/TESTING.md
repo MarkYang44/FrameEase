@@ -23,15 +23,16 @@ npm run core:test
 | 套件 | 数量 | 结果 | 说明 |
 |---|---|---|---|
 | 单元测试（`cargo test -p fe-core --lib`） | 134 | 全部通过 | 状态机、参数生成、编码器换算、文件安全、CSV、持久化、探测解析、能力解析、预设、停滞检测 |
-| `tests/caps_detect.rs` | 4 | 全部通过 | 真实能力检测、VideoToolbox 实测、无损自检能发现隐式色度转换 |
+| `tests/caps_detect.rs` | 5 | 全部通过 | 真实能力检测、VideoToolbox 实测、无损自检能发现隐式色度转换、同一目录中并发自检互不干扰且不留文件 |
 | `tests/engine_e2e.rs` | 18 | 全部通过 | 真实 FFmpeg 端到端（见下表） |
 | `tests/process_watchdog.rs` | 3 | 全部通过 | 卡死后端被识别并结束、正常进度不误判、快速退出不漏判 |
 | `tests/trial.rs` | 4 | 全部通过 | 试压体积/速度/PSNR/SSIM/VMAF、取帧 |
-| **合计** | **163** | **全部通过** | 单次完整运行约 15 秒 |
+| **合计** | **164** | **全部通过** | 单次完整运行约 25 秒 |
 | 压力复测：端到端套件连续 15 轮 | 270 次执行 | 全部通过 | 其中 1 轮捕获到真实的 SVT-AV1 卡死并被自动重试恢复（该轮用时 27 秒，其余约 8 秒） |
 | `cargo clippy`（两个 crate，含测试） | — | 无警告 | |
-| `cargo check -p fe-core --tests --target x86_64-pc-windows-msvc` | — | 通过 | Windows 专用代码可编译；未在 Windows 上运行 |
-| `tsc --noEmit` / `vite build` | — | 通过 | 主包 373 KB（未压缩），样式 21 KB |
+| `cargo check -p fe-core --tests --target x86_64-pc-windows-msvc` | — | 通过 | Windows 专用代码可编译 |
+| GitHub Actions：`macos-15`（Apple Silicon）、`windows-latest`（Windows Server 2025） | — | 通过 | 生成测试素材、全部核心测试、类型检查、打包（macOS `.dmg`+`.app` 41 MB；Windows NSIS+MSI 共 226 MB），见[运行 41811801335](https://github.com/MarkYang44/FrameEase/actions/runs/41811801335)。同一提交的下一次运行在 Windows 上暴露了无损自检的并发问题（见下表），已修复 |
+| `tsc --noEmit` / `vite build` | — | 通过 | 主包 375 KB（未压缩），样式 21 KB |
 
 ## 需求覆盖（端到端测试）
 
@@ -72,6 +73,7 @@ npm run core:test
 
 - 浏览器面板 + 模拟数据：检查深/浅色、最小窗口 920×640、长文件名、密集队列、各种任务状态的布局（`docs/screenshots/07-*`、`08-*`）。
 - **开发桥接 + 真实后端**（调试版 `--features dev-bridge`）：真实探测与问题提示、开始处理、按任务修正（转 AAC、改用 SVT-AV1）、真实进度时间线、试压指标与滑动对比、截取关键帧与起止画面、媒体信息、设置页真实能力表（`docs/screenshots/01-*` 至 `06-*`）。
+- 浮层（菜单、提示）：在 1280×820 与最小窗口 920×620 下逐一测量检查器中全部 15 个提示和各个菜单的位置，全部完整显示在窗口内；队列底部任务的菜单自动翻到上方；“⋯”预设菜单的方向键、Esc、Tab 操作正常；面板滚动时菜单跟随按钮，按钮滚出视野即关闭。
 - 原生窗口：调试版与发布版都已实际启动，启动检测成功；**本环境没有屏幕录制权限，未能对原生 WKWebView 窗口截图**。
 
 ## 打包验证（macOS Apple Silicon）
@@ -92,10 +94,14 @@ npm run core:test
 | 并发保存队列共用临时文件名，可能写坏或保存失败 | 代码审查 → 并发测试复现 | 每次保存使用唯一临时名，引擎串行化保存 |
 | **SVT-AV1 4.1 在高并发下偶发内部死锁**（采样显示所有流水线线程阻塞在 `svt_block_on_semaphore`），任务停在“编码中” | 全量测试偶发超时 → 进程状态监控（非僵尸、仍存活）→ 对照实验（软解也会卡、x264 不会、限制 `lp` 降低概率）→ `sample` 采样确认 | 1）SVT-AV1 始终显式设置并行级别；2）停滞检测：进度计数 5 分钟不变即结束进程（libaom 15 分钟）；3）同一步骤自动重试一次并在任务上提示；二次卡死才判失败 |
 | 发布构建因 Tauri npm 包与 crate 次版本不一致而失败 | 发布构建 | 锁定 npm 包到与 crate 相同的次版本 |
+| 生成测试素材的脚本先切换到输出目录、再用调用方给的相对路径运行 FFmpeg，CI 的所有任务都在这一步失败 | GitHub Actions 首次运行 | 脚本先把两个路径转成绝对路径；CI 步骤失败时把输出写成注解，不登录也能看到原因 |
+| 无损自检并发运行时，同一像素格式的自检共用一个源片段；一个自检重写它时另一个可能正在读取，健康的编码器会偶发被判为“未通过无损验证” | Windows CI：同一提交一次通过、一次 x264 被判未验证 | 每次自检使用独立目录并在结束后删除；能力缓存版本升为 2，旧缓存中可能的误判会重新检测；回归测试 `concurrent_self_tests_in_one_folder_all_pass_and_clean_up` |
+| 菜单与提示被可滚动的面板（检查器、队列）裁切，例如“⋯”预设菜单左侧被遮住 | 用户反馈 | 菜单与提示渲染到页面顶层、按窗口定位：一侧放不下时翻到另一侧，靠边时沿边平移，从最靠近按钮的一点展开 |
 
 ## 未验证 / 未覆盖
 
-- Windows 10/11 与 macOS Intel：未实机运行；CI 已配置但未在 GitHub 上运行过。
+- Windows：只在 GitHub Actions 的 Windows Server 2025 运行器上测试和打包，未在实体 Windows 10/11 电脑上安装运行。
+- macOS Intel：没有可随包附带的 Intel 版 FFmpeg（Homebrew 已停止提供 Intel Mac 的 FFmpeg 预编译包），CI 暂不构建 Intel 版本；需要选定 FFmpeg 来源（例如带校验和的第三方静态构建，或在 CI 中自行编译）。
 - NVENC、Quick Sync、AMF、libaom、rav1e、libass 文字字幕烧录：本机 FFmpeg/硬件不具备，代码路径只在运行时能力检测通过后启用，未实测。
 - 杜比视界、HLG、隔行素材、超长视频（小时级）、网络磁盘与 exFAT 的回退重命名路径：无本地素材或环境，未实测。
 - 原生窗口截图（见上）。
