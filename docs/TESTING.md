@@ -31,7 +31,8 @@ npm run core:test
 | 压力复测：端到端套件连续 15 轮 | 270 次执行 | 全部通过 | 其中 1 轮捕获到真实的 SVT-AV1 卡死并被自动重试恢复（该轮用时 27 秒，其余约 8 秒） |
 | `cargo clippy`（两个 crate，含测试） | — | 无警告 | |
 | `cargo check -p fe-core --tests --target x86_64-pc-windows-msvc` | — | 通过 | Windows 专用代码可编译 |
-| GitHub Actions：`macos-15`（Apple Silicon）、`windows-latest`（Windows Server 2025） | — | 通过 | 生成测试素材、全部核心测试、类型检查、打包（macOS `.dmg`+`.app` 41 MB；Windows NSIS+MSI 共 226 MB），见[运行 41811801335](https://github.com/MarkYang44/FrameEase/actions/runs/41811801335)。同一提交的下一次运行在 Windows 上暴露了无损自检的并发问题（见下表），已修复 |
+| GitHub Actions：`macos-15`（Apple Silicon）、`windows-latest`（Windows Server 2025） | — | 通过 | 生成测试素材、全部核心测试、类型检查、打包（macOS `.dmg`+`.app` 41 MB；Windows NSIS+MSI 起初共 226 MB，见下一行），见[运行 41811801335](https://github.com/MarkYang44/FrameEase/actions/runs/41811801335)。同一提交的下一次运行在 Windows 上暴露了无损自检的并发问题（见下表），已修复 |
+| GitHub Actions：Windows 改用 FFmpeg 共享库构建 | — | 通过 | 全部核心测试与打包通过；NSIS 安装包 59.7 MB、MSI 81.9 MB（CI 产物合计 141 MB，静态构建时 226 MB）。两个安装包解包后随包 FFmpeg 文件齐全，`ffmpeg.exe`/`ffprobe.exe` 在 PATH 只含系统目录时也能从自身文件夹启动。与同一版本（n8.1.3-32-g760d10603e）的静态构建相比，编码器、解码器、滤镜、封装/解封装、协议、比特流滤镜、硬件加速与像素格式列表完全相同，配置参数只差 `--enable-shared --disable-static`。见[运行 41816866579](https://github.com/MarkYang44/FrameEase/actions/runs/41816866579)与[对比运行 41816866452](https://github.com/MarkYang44/FrameEase/actions/runs/41816866452) |
 | `tsc --noEmit` / `vite build` | — | 通过 | 主包 375 KB（未压缩），样式 21 KB |
 
 ## 需求覆盖（端到端测试）
