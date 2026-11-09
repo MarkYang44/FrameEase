@@ -19,6 +19,7 @@ function Nav() {
   const view = useStore((st) => st.view);
   const running = useStore((st) => st.status?.running ?? 0);
   const setView = useStore((st) => st.setView);
+  const version = useStore((st) => st.app?.version);
   const item = (v: View, Icon: typeof Film, label: string, badge?: number) => (
     <button key={v} type="button" className="nav__item" aria-current={view === v ? "page" : undefined} onClick={() => setView(v)} title={label}>
       <Icon size={19} strokeWidth={1.7} />
@@ -34,6 +35,11 @@ function Nav() {
       {NAV.map((n) => item(n.view, n.icon, t(n.key), n.view === "convert" ? running : undefined))}
       <div className="nav__spacer" />
       {item("settings", Settings2, t("nav.settings"))}
+      {version ? (
+        <div className="nav__version selectable" title={`FrameEase ${version}`}>
+          v{version}
+        </div>
+      ) : null}
     </nav>
   );
 }

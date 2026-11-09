@@ -1,6 +1,7 @@
 // Browser-only stand-in used to check layouts in a plain web view (the window
 // shows a banner saying so). It never runs encodes and is not used by tests.
 import type { Bootstrap, Job, JobSettings, JobState, PreviewResult, ProbeEntry, QueueStatus } from "./types";
+import { version as appVersion } from "../../src-tauri/tauri.conf.json";
 
 type Listener = (payload: unknown) => void;
 const listeners = new Map<string, Set<Listener>>();
@@ -159,7 +160,7 @@ const bootstrap = (): Bootstrap => ({
   status: status(),
   manifest: { path: "/Users/demo/Library/Application Support/com.frameease.app/FrameEase 结果记录.csv", pending: 0, lastError: null },
   presets: [{ id: "builtin-h264-balanced", name: "H.264 · 均衡（兼容性最好）", settings: settings(), builtin: true }],
-  app: { version: "0.1.0", dataDir: "/Users/demo/Library/Application Support/com.frameease.app", platform: "macos", arch: "aarch64" },
+  app: { version: appVersion, dataDir: "/Users/demo/Library/Application Support/com.frameease.app", platform: "macos", arch: "aarch64" },
 });
 
 export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {

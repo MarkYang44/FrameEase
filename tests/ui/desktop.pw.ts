@@ -26,8 +26,13 @@ test("settings stays at the window bottom across views, sizes, and notifications
     for (const view of [3, 4, 1, 2, 0]) {
       await page.locator(".nav__item").nth(view).click();
       await expect.poll(() => page.locator(".nav").evaluate((el) => el.getBoundingClientRect().bottom)).toBe(height);
+      // The version label sits at the bottom edge, with Settings directly above it.
+      await expect(page.locator(".nav__version")).toBeVisible();
       const button = await page.locator(".nav__item").last().boundingBox();
-      expect(button!.y + button!.height).toBeCloseTo(height - 14, 0);
+      const version = await page.locator(".nav__version").boundingBox();
+      expect(version!.y + version!.height).toBeCloseTo(height - 14, 0);
+      // 2px flex gap of the nav + 6px top margin of the label.
+      expect(version!.y - (button!.y + button!.height)).toBeCloseTo(8, 0);
     }
   }
   await page.evaluate(async () => {
