@@ -12,7 +12,7 @@ Compress a batch, compare a short trial, trim a clip, or reorganize tracks. Fram
 ![macOS and Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-3457D5)](LICENSE)
 
-[Download v0.1.2](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.2) · [Quick start](#quick-start) · [Development](#development) · [Documentation](#documentation)
+[Download v0.1.3](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.3) · [Quick start](#quick-start) · [Development](#development) · [Documentation](#documentation)
 
 ## Overview
 

@@ -12,7 +12,7 @@
 ![macOS and Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-3457D5)](LICENSE)
 
-[下载 v0.1.2](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.2) · [快速开始](#快速开始) · [开发](#开发) · [文档](#文档)
+[下载 v0.1.3](https://github.com/MarkYang44/FrameEase/releases/tag/v0.1.3) · [快速开始](#快速开始) · [开发](#开发) · [文档](#文档)
 
 ## 概览
 
