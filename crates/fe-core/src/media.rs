@@ -195,6 +195,11 @@ pub struct MediaInfo {
     pub data_streams: u32,
     pub chapters: u32,
     pub tags: BTreeMap<String, String>,
+    /// Set when the media data stops before the end the file declares (typically an
+    /// unfinished download whose index survived): seconds that can actually be read.
+    /// `None` when complete or not checked (only MP4/MOV files are).
+    #[serde(default)]
+    pub readable_until: Option<f64>,
 }
 
 impl MediaInfo {
@@ -512,6 +517,7 @@ pub fn parse_probe_json(path: &Path, json: &str) -> Result<MediaInfo, ProbeError
         data_streams: 0,
         chapters: v.get("chapters").and_then(Value::as_array).map(|c| c.len() as u32).unwrap_or(0),
         tags: tags_of(&fmt),
+        readable_until: None,
     };
     for st in &streams {
         let index = int_of(st, "index").unwrap_or(0) as u32;
@@ -606,26 +612,57 @@ pub async fn probe(ffprobe: &Path, path: &Path) -> Result<MediaInfo, ProbeError>
 
     let args = ["-v", "error", "-select_streams", &sel, "-read_intervals", "%+#600", "-show_entries", "packet=pts_time", "-of", "csv=p=0", "-i", &src];
     if let Ok(o) = process::run_capture(ffprobe, &args, PROBE_TIMEOUT).await {
-        let pts: Vec<f64> = String::from_utf8_lossy(&o.stdout).lines().filter_map(|l| l.trim().trim_end_matches(',').parse().ok()).collect();
-        info.video[vi].vfr = vfr_from_pts(&pts);
+        info.video[vi].vfr = vfr_from_pts(&packet_times(&o.stdout));
+    }
+    if info.is_mp4_family() {
+        info.readable_until = readable_until(ffprobe, &src, &info).await;
     }
     Ok(info)
 }
 
-/// Number of packets in one stream (reads the file, no decoding).
+fn packet_times(csv: &[u8]) -> Vec<f64> {
+    String::from_utf8_lossy(csv).lines().filter_map(|l| l.trim().trim_end_matches(',').parse().ok()).collect()
+}
+
+/// Where an MP4/MOV file's media data really ends, when it stops short of the end its
+/// index declares. A complete file has packets right up to that end, so only a file
+/// without them is scanned, and only a read that fails (not one that simply runs out of
+/// packets, as sparse streams do) marks data as missing.
+async fn readable_until(ffprobe: &Path, src: &str, info: &MediaInfo) -> Option<f64> {
+    let start = info.start_time.unwrap_or(0.0);
+    let end = start + info.duration.filter(|d| *d > 3.0)?;
+    let tail = format!("{:.3}%", end - 2.0);
+    let args = ["-v", "error", "-read_intervals", &tail, "-show_entries", "packet=pts_time", "-of", "csv=p=0", "-i", src];
+    let o = process::run_capture(ffprobe, &args, PROBE_TIMEOUT).await.ok()?;
+    if packet_times(&o.stdout).iter().any(|t| *t >= end - 4.0) {
+        return None;
+    }
+    let args = ["-v", "error", "-show_entries", "packet=pts_time", "-of", "csv=p=0", "-i", src];
+    let o = process::run_capture(ffprobe, &args, Duration::from_secs(1800)).await.ok()?;
+    if o.stderr.trim().is_empty() {
+        return None;
+    }
+    let last = packet_times(&o.stdout).into_iter().fold(start, f64::max);
+    (last < end - 1.0).then_some(last - start)
+}
+
+/// The pixel format with FFmpeg's legacy full-range spelling ("yuvj420p") folded into the
+/// plain one; the range itself is a separate property (`VideoStream::full_range`).
+pub fn plain_pix_fmt(p: &str) -> String {
+    p.strip_prefix("yuvj").map(|r| format!("yuv{r}")).unwrap_or_else(|| p.to_string())
+}
+
+/// Packets a player shows in one stream: packets the demuxer marks as discarded (leading
+/// frames hidden by a MOV/MP4 edit list) are left out. Reads the file, no decoding.
 pub async fn count_packets(ffprobe: &Path, path: &Path, stream_index: u32) -> Result<u64, ProbeError> {
     let src = ff_path(path);
     let sel = stream_index.to_string();
-    let args = ["-v", "error", "-select_streams", &sel, "-count_packets", "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", "-i", &src];
+    let args = ["-v", "error", "-select_streams", &sel, "-show_entries", "packet=flags", "-of", "csv=p=0", "-i", &src];
     let out = process::run_capture(ffprobe, &args, Duration::from_secs(1800)).await.map_err(|e| ProbeError::Backend(e.to_string()))?;
     if !out.success() {
         return Err(ProbeError::Backend(out.stderr_tail(4)));
     }
-    String::from_utf8_lossy(&out.stdout)
-        .trim()
-        .trim_end_matches(',')
-        .parse()
-        .map_err(|_| ProbeError::Invalid("packet count".into()))
+    Ok(String::from_utf8_lossy(&out.stdout).lines().filter(|l| !l.trim().is_empty() && !l.contains('D')).count() as u64)
 }
 
 /// Keyframe timestamps (seconds) of the main video stream, from packet flags.

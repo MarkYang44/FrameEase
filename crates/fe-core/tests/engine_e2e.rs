@@ -359,6 +359,65 @@ async fn incompatible_audio_waits_for_a_decision() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn full_range_sources_keep_their_range_and_verify() {
+    // Phone apps often record full ("JPEG") range. FFmpeg names such 8-bit H.264/HEVC
+    // streams yuvj420p, so a faithful output must not fail on the name alone.
+    let r = rig().await;
+    let mut specs = vec![
+        convert(media("fullrange.mp4"), VideoCodec::H264, VideoMode::Lossy, Container::Mp4, &r.out_dir()),
+        convert(media("fullrange.mp4"), VideoCodec::Hevc, VideoMode::Lossy, Container::Mkv, &r.out_dir()),
+    ];
+    if capabilities().await.usable("h264_videotoolbox") {
+        let gpu = convert(media("fullrange.mp4"), VideoCodec::H264, VideoMode::Lossy, Container::Mp4, &r.out_dir());
+        specs.push(with(gpu, |s| s.video.speed = Speed::Gpu));
+    }
+    let ids = r.engine.enqueue(specs);
+    for j in wait_terminal(&r.engine, &ids, T).await {
+        assert_done(&j);
+        assert!(check_ok(&j, "pixFmt") && check_ok(&j, "colorRange"), "{:?}", j.verify);
+        assert!(probe(j.output.as_ref().unwrap()).await.main_video().unwrap().full_range(), "full range kept");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn frames_hidden_by_an_edit_list_are_not_counted_as_lost() {
+    // The edit list hides 15 leading frames; players and FFmpeg skip them, so the output
+    // rightly has fewer frames than the source file has video packets.
+    let src = media("edit_list.mov");
+    let ff = ffmpeg();
+    assert_eq!(fe_core::media::count_packets(&ff.ffprobe, &src, 0).await.unwrap(), 105, "only shown frames count");
+    let r = rig().await;
+    let ids = r.engine.enqueue(vec![convert(src, VideoCodec::H264, VideoMode::Lossy, Container::Mp4, &r.out_dir())]);
+    let j = wait_terminal(&r.engine, &ids, T).await.remove(0);
+    assert_done(&j);
+    assert!(check_ok(&j, "frameCount"), "{:?}", j.verify);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_unfinished_download_is_flagged_and_its_readable_part_can_be_processed() {
+    // The index at the front declares 10 s, but the data stops after about half of it.
+    let src = media("incomplete_download.mp4");
+    let m = probe(&src).await;
+    let readable = m.readable_until.expect("missing data is noticed at import");
+    assert!(readable > 3.0 && readable < 8.0 && m.duration.unwrap() > 9.0, "readable {readable}s of {:?}", m.duration);
+    for complete in ["h264_aac.mp4", "rotated.mp4", "edit_list.mov", "pcm_audio.mov"] {
+        assert_eq!(probe(&media(complete)).await.readable_until, None, "{complete} is complete");
+    }
+
+    let r = rig().await;
+    let ids = r.engine.enqueue(vec![convert(src, VideoCodec::H264, VideoMode::Lossy, Container::Mp4, &r.out_dir())]);
+    let j = wait_terminal(&r.engine, &ids, T).await.remove(0);
+    assert_eq!(j.state, JobState::NeedsInput, "refused before encoding: {:?}", j.error);
+    assert_eq!(j.issues[0].notice.code, "sourceIncomplete");
+    assert!(r.engine.resolve(&ids[0], "acceptIncomplete"));
+    let j = wait_terminal(&r.engine, &ids, T).await.remove(0);
+    assert_done(&j);
+    assert!(j.warnings.iter().any(|w| w.code == "sourceIncompleteTrimmed"));
+    let out = probe(j.output.as_ref().unwrap()).await;
+    assert!((out.duration.unwrap() - readable).abs() < 1.0, "output {:?}s, readable {readable}s", out.duration);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn remux_trim_extract_and_mux() {
     let r = rig().await;
     let o = r.out_dir();

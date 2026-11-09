@@ -26,7 +26,9 @@ pub fn media_dir() -> PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| {
         let dir = repo_root().join("test-media");
-        if !dir.join("long_720p.mp4").exists() || !dir.join("hdr10.mkv").exists() {
+        // Regenerate when any clip added since the folder was made is missing.
+        let complete = ["long_720p.mp4", "hdr10.mkv", "edit_list.mov", "incomplete_download.mp4"].iter().all(|f| dir.join(f).exists());
+        if !complete {
             let ff = ffmpeg();
             let status = std::process::Command::new("bash")
                 .arg(repo_root().join("scripts/gen-test-media.sh"))

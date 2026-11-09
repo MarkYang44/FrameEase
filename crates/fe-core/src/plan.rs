@@ -175,6 +175,13 @@ fn secs(t: f64) -> String {
     format!("{t:.3}")
 }
 
+/// "11:12" / "1:02:03", for messages.
+fn clock(t: f64) -> String {
+    let s = t.max(0.0).round() as u64;
+    let (h, m, s) = (s / 3600, s / 60 % 60, s % 60);
+    if h > 0 { format!("{h}:{m:02}:{s:02}") } else { format!("{m}:{s:02}") }
+}
+
 fn head() -> Vec<String> {
     strs(&["-hide_banner", "-nostdin", "-n", "-loglevel", "level+warning", "-progress", "pipe:1", "-nostats", "-stats_period", "0.5"])
 }
@@ -602,10 +609,6 @@ fn trim_float(v: f64) -> String {
 
 // ---------------------------------------------------------------- pixel format
 
-fn normalized_pix(p: &str) -> String {
-    p.strip_prefix("yuvj").map(|r| format!("yuv{r}")).unwrap_or_else(|| p.to_string())
-}
-
 /// Lossy target pixel format: keep chroma layout and bit depth unless the user opted in.
 fn choose_pix_fmt(
     v: &VideoStream,
@@ -763,6 +766,23 @@ pub fn plan_convert(settings: &JobSettings, media: &MediaInfo, env: &PlanEnv) ->
         } else {
             let end = t.end.filter(|e| src_duration.map(|d| *e < d).unwrap_or(true));
             trim_range = Some((t.start, end));
+        }
+    }
+    // ---- incomplete source (an unfinished download): refuse, or, once the user accepts,
+    // process only the part that can be read
+    if let Some(readable) = media.readable_until {
+        let start = trim_range.map(|(s, _)| s).unwrap_or(0.0);
+        let past_readable = trim_range.and_then(|(_, e)| e).map(|e| e > readable).unwrap_or(true);
+        if past_readable {
+            if !accepted("sourceIncomplete") {
+                let notice = Notice::new("sourceIncomplete").with("readable", clock(readable)).with("declared", src_duration.map(clock).unwrap_or_default());
+                issues.push(Issue::new(notice).fix("acceptIncomplete"));
+            } else if start + 0.01 < readable {
+                trim_range = Some((start, Some(readable)));
+                warnings.push(Notice::new("sourceIncompleteTrimmed").with("readable", clock(readable)));
+            } else {
+                issues.push(Issue::new(Notice::new("trimOutOfRange")));
+            }
         }
     }
     let mut out_duration = match trim_range {
@@ -953,7 +973,7 @@ pub fn plan_convert(settings: &JobSettings, media: &MediaInfo, env: &PlanEnv) ->
                 match v.pix_fmt.as_deref() {
                     None => issues.push(Issue::new(Notice::new("pixFmtUnknown"))),
                     Some(src) => {
-                        let norm = normalized_pix(src);
+                        let norm = crate::media::plain_pix_fmt(src);
                         let key = if caps.supports_pix_fmt(def.name, src) {
                             Some(src.to_string())
                         } else if caps.supports_pix_fmt(def.name, &norm) {
@@ -1545,6 +1565,7 @@ pub fn apply_fix(settings: &mut JobSettings, fix: &str, media: Option<&MediaInfo
         "allowChromaSubsampling" => v.allow_chroma_subsampling = true,
         "acceptAlphaDrop" => settings.accept.push("alphaDropped".into()),
         "acceptDolbyVisionLoss" => settings.accept.push("dolbyVisionLoss".into()),
+        "acceptIncomplete" => settings.accept.push("sourceIncomplete".into()),
         "useX264" => use_encoder(VideoCodec::H264, "libx264", v),
         "useX265" => use_encoder(VideoCodec::Hevc, "libx265", v),
         "useSvtAv1" => use_encoder(VideoCodec::Av1, "libsvtav1", v),
@@ -1834,6 +1855,26 @@ mod tests {
     fn svt_lossless_accepts_full_range_source() {
         let p = run(&settings(VideoCodec::Av1, VideoMode::Lossless, Container::Mkv), &media("fullrange")).unwrap();
         assert_eq!(p.expected.video.unwrap().color.range.as_deref(), Some("pc"));
+    }
+
+    #[test]
+    fn incomplete_source_is_refused_until_the_readable_part_is_accepted() {
+        let mut m = media("h264_aac");
+        let d = m.duration.unwrap();
+        m.readable_until = Some(d / 2.0);
+        let mut s = settings(VideoCodec::H264, VideoMode::Lossy, Container::Mp4);
+        assert_eq!(fixes(run(&s, &m).unwrap_err()), vec!["acceptIncomplete"]);
+
+        assert!(apply_fix(&mut s, "acceptIncomplete", None));
+        let p = run(&s, &m).unwrap();
+        assert!((p.expected.duration.unwrap() - d / 2.0).abs() < 0.01, "only the readable part is expected");
+        assert!(p.warnings.iter().any(|w| w.code == "sourceIncompleteTrimmed"));
+
+        // A trim that ends inside the readable part needs no decision.
+        let mut t = settings(VideoCodec::H264, VideoMode::Lossy, Container::Mp4);
+        t.trim = Some(Trim { start: 0.0, end: Some(d / 4.0) });
+        assert!(run(&t, &m).is_ok());
+        assert_eq!((clock(671.96), clock(1190.88), clock(3725.0)), ("11:12".into(), "19:51".into(), "1:02:05".into()));
     }
 
     #[test]

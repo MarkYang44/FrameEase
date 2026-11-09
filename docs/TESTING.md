@@ -86,6 +86,9 @@ npm run core:test
 | 流复制重新封装、关键帧截取、精确截取、轨道提取、轨道合并 | `remux_trim_extract_and_mux` |
 | 暂停、排序 | `paused_queue_holds_jobs_and_respects_reordering` |
 | 后端卡死被识别、结束并自动重试一次 | `a_hung_backend_is_killed_and_the_step_retried_once` |
+| 全范围（JPEG range）源转 H.264 / HEVC（含 VideoToolbox）保持全范围并通过校验 | `full_range_sources_keep_their_range_and_verify` |
+| MOV 编辑列表隐藏的开头帧不算作丢帧 | `frames_hidden_by_an_edit_list_are_not_counted_as_lost` |
+| 未下载完整的 MP4 在导入时识别并拒绝；用户同意后只处理可读部分 | `an_unfinished_download_is_flagged_and_its_readable_part_can_be_processed` |
 
 每个成功任务都经过 `verify.rs` 的全部检查（实际编码、分辨率、像素格式、色彩、帧数、时长、轨道、复制轨道哈希、完整解码或逐帧比对），测试断言 `verify.ok` 且输出文件真实存在。
 
@@ -127,6 +130,9 @@ npm run core:test
 | 生成测试素材的脚本先切换到输出目录、再用调用方给的相对路径运行 FFmpeg，CI 的所有任务都在这一步失败 | GitHub Actions 首次运行 | 脚本先把两个路径转成绝对路径；CI 步骤失败时把输出写成注解，不登录也能看到原因 |
 | 无损自检并发运行时，同一像素格式的自检共用一个源片段；一个自检重写它时另一个可能正在读取，健康的编码器会偶发被判为“未通过无损验证” | Windows CI：同一提交一次通过、一次 x264 被判未验证 | 每次自检使用独立目录并在结束后删除；能力缓存版本升为 2，旧缓存中可能的误判会重新检测；回归测试 `concurrent_self_tests_in_one_folder_all_pass_and_clean_up` |
 | 菜单与提示被可滚动的面板（检查器、队列）裁切，例如“⋯”预设菜单左侧被遮住 | 用户反馈 | 菜单与提示渲染到页面顶层、按窗口定位：一侧放不下时翻到另一侧，靠边时沿边平移，从最靠近按钮的一点展开 |
+| 全范围（JPEG range）的手机视频转 H.264 / HEVC 后校验失败：“像素格式”预期 `yuv420p`，实际 `yuvj420p`。输出其实如实保留了全范围，只是 FFmpeg 把全范围 8-bit H.264/HEVC 记作 `yuvj420p`，而色彩范围另有单独的检查 | 用户反馈：手机 App 录制的全范围 HEVC 视频（VideoToolbox 编码） | 比较像素格式时把 `yuvj…` 视同 `yuv…`，范围仍由“色彩范围”检查把关；回归测试覆盖 x264、x265 与 VideoToolbox |
+| 带编辑列表的 MOV 校验“帧数”失败（预期 1081，实际 1066）：文件里有 15 个被编辑列表隐藏、播放器和 FFmpeg 都不显示的开头帧，旧的计数把它们也算进去了 | 用户反馈：手机 App 导出的 MOV | 计数时排除被解复用器标记为丢弃的包（只数实际显示的帧）；测试素材增加 `edit_list.mov` |
+| 未下载完整的 MP4（文件头声明 19:51，数据只到 11:12）照常编码，最后才以“时长”校验失败告终，看不出原因 | 用户反馈：一个下载的文件 | 导入时检查 MP4/MOV 的数据是否到达声明的结尾，不完整则在开始前提示“源文件不完整”，并提供“只处理可读的部分”；测试素材增加 `incomplete_download.mp4` |
 
 ## 未验证 / 未覆盖
 

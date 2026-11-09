@@ -127,7 +127,10 @@ pub async fn verify(expected: &Expected, ctx: &VerifyCtx<'_>, mut on_progress: i
                 checks.push(check("videoCodec", v.codec == ev.codec, &ev.codec, &v.codec));
                 checks.push(check("dimensions", v.width == ev.width && v.height == ev.height, format!("{}×{}", ev.width, ev.height), format!("{}×{}", v.width, v.height)));
                 if let Some(p) = &ev.pix_fmt {
-                    checks.push(check("pixFmt", v.pix_fmt.as_deref() == Some(p.as_str()), p, opt(&v.pix_fmt)));
+                    // Range has its own check (colorRange): FFmpeg names full-range 8-bit
+                    // H.264/HEVC "yuvj…" whatever pixel format the encoder was given.
+                    let same = v.pix_fmt.as_deref().map(media::plain_pix_fmt) == Some(media::plain_pix_fmt(p));
+                    checks.push(check("pixFmt", same, p, opt(&v.pix_fmt)));
                 }
                 checks.push(check("rotation", v.rotation == ev.rotation, ev.rotation, v.rotation));
                 for (name, want, got) in [

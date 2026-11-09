@@ -81,6 +81,19 @@ head -c 60000 nofaststart.mp4 > corrupt_truncated.mp4
 rm -f nofaststart.mp4
 head -c 200000 /dev/urandom > corrupt_random.mkv
 
+# 13b. Index intact, data cut off (an unfinished download): moov at the front declares
+# 10 s, but only the first ~55% of the file is present.
+ff -f lavfi -i "$V" -f lavfi -i "$A" -t 10 -c:v libx264 -preset veryfast -c:a aac -movflags +faststart whole.mp4
+head -c $(( $(wc -c < whole.mp4) * 55 / 100 )) whole.mp4 > incomplete_download.mp4
+rm -f whole.mp4
+
+# 13c. MOV edit list hiding leading frames (as phone editors write when trimming without
+# re-encoding): a stream copy from a non-keyframe start keeps the GOP's earlier frames as
+# discarded packets, so the file holds more video packets than it shows.
+ff -f lavfi -i "$V" -f lavfi -i "$A" -t 4 -c:v libx264 -preset veryfast -g 30 -c:a aac gop30.mp4
+ff -ss 0.5 -i gop30.mp4 -c copy edit_list.mov
+rm -f gop30.mp4
+
 # 14. Unicode / special-character paths
 mkdir -p "中文 目录/日本語 フォルダ"
 cp h264_aac.mp4 "中文 目录/旅行 vlog #1 (最终版) & 東京タワー 'test'.mp4"
